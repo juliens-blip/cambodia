@@ -1,0 +1,25 @@
+{
+  "version": 2,
+  "name": "cambodia-agri-analytics",
+  "builds": [
+    {
+      "src": "app/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "app/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "app/main.py"
+    }
+  ],
+  "env": {
+    "ENVIRONMENT": "production",
+    "PYTHONUNBUFFERED": "1"
+  },
+  "regions": ["sin1"]
+}
