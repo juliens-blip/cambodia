@@ -4,18 +4,28 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
 
-from app.config import settings
-from app.api.routes import prices, production, reports, search, quality
-from app.api.routes import semantic, trends
-from app.services import ChromaDBService, SupabaseService
-from app.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
-
-# Configure logging
+# Configure logging FIRST
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
+
+from app.config import settings
+from app.api.routes import prices, production, reports, search, quality
+from app.services import ChromaDBService, SupabaseService
+from app.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
+
+# Optional routes (require heavy dependencies like sentence-transformers)
+SEMANTIC_AVAILABLE = False
+try:
+    from app.api.routes import semantic, trends
+    SEMANTIC_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"⚠️ Semantic/Trends routes not available: {e}")
+    logger.info("ℹ️ The API will work without semantic search features")
+    semantic = None
+    trends = None
 
 
 # Global service instances
@@ -104,8 +114,14 @@ app.include_router(production.router, prefix="/api/production", tags=["Productio
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(quality.router, prefix="/api", tags=["Data Quality"])
-app.include_router(semantic.router, tags=["Semantic Search & RAG"])
-app.include_router(trends.router, tags=["Market Trends"])
+
+# Optional routers (only if dependencies available)
+if SEMANTIC_AVAILABLE:
+    app.include_router(semantic.router, tags=["Semantic Search & RAG"])
+    app.include_router(trends.router, tags=["Market Trends"])
+    logger.info("✅ Semantic/Trends routes enabled")
+else:
+    logger.info("ℹ️ Semantic/Trends routes disabled (missing dependencies)")
 
 
 @app.get("/")
