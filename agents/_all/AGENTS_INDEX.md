@@ -1,0 +1,51 @@
+# Agents Catalog
+
+This index lists all agent definition files consolidated under agents/_all.
+
+- agents/_all/agents__explore-code.md <- agents/explore-code.md
+- agents/_all/agents__explore-style.md <- agents/explore-style.md
+- agents/_all/agents__frontend-developer.md <- agents/frontend-developer.md
+- agents/_all/agents__mcp-creator.md <- agents/mcp-creator.md
+- agents/_all/agents__mcp-doctor.md <- agents/mcp-doctor.md
+- agents/_all/agents__prompt-engineer.md <- agents/prompt-engineer.md
+- agents/_all/agents__test-code.md <- agents/test-code.md
+- agents/_all/agents__agents__explore-code.md <- agents/_all/agents__explore-code.md
+- agents/_all/agents__agents__explore-style.md <- agents/_all/agents__explore-style.md
+- agents/_all/agents__agents__frontend-developer.md <- agents/_all/agents__frontend-developer.md
+- agents/_all/agents__agents__mcp-creator.md <- agents/_all/agents__mcp-creator.md
+- agents/_all/agents__agents__mcp-doctor.md <- agents/_all/agents__mcp-doctor.md
+- agents/_all/agents__agents__prompt-engineer.md <- agents/_all/agents__prompt-engineer.md
+- agents/_all/agents__agents__test-code.md <- agents/_all/agents__test-code.md
+- agents/_all/agents_copy__agent-overview.md <- agents copy/agent-overview.md
+- agents/_all/agents_copy__architect-review.md <- agents copy/architect-review.md
+- agents/_all/agents_copy__backend-architect.md <- agents copy/backend-architect.md
+- agents/_all/agents_copy__context-manager.md <- agents copy/context-manager.md
+- agents/_all/agents_copy__debugger.md <- agents copy/debugger.md
+- agents/_all/agents_copy__mcp-expert.md <- agents copy/mcp-expert.md
+- agents/_all/agents_copy__task-decomposition-expert.md <- agents copy/task-decomposition-expert.md
+- agents/_all/agents_copy__test-engineer.md <- agents copy/test-engineer.md
+- agents/_all/agents_copy__typescript-pro.md <- agents copy/typescript-pro.md
+- agents/_all/agents_copy_2__explore-code.md <- agents copy 2/explore-code.md
+- agents/_all/agents_copy_2__explore-style.md <- agents copy 2/explore-style.md
+- agents/_all/agents_copy_2__frontend-developer.md <- agents copy 2/frontend-developer.md
+- agents/_all/agents_copy_2__mcp-creator.md <- agents copy 2/mcp-creator.md
+- agents/_all/agents_copy_2__mcp-doctor.md <- agents copy 2/mcp-doctor.md
+- agents/_all/agents_copy_2__prompt-engineer.md <- agents copy 2/prompt-engineer.md
+- agents/_all/agents_copy_2__test-code.md <- agents copy 2/test-code.md
+- agents/_all/agents_copy_3__agent-overview.md <- agents copy 3/agent-overview.md
+- agents/_all/agents_copy_3__architect-review.md <- agents copy 3/architect-review.md
+- agents/_all/agents_copy_3__backend-architect.md <- agents copy 3/backend-architect.md
+- agents/_all/agents_copy_3__context-manager.md <- agents copy 3/context-manager.md
+- agents/_all/agents_copy_3__debugger.md <- agents copy 3/debugger.md
+- agents/_all/agents_copy_3__mcp-expert.md <- agents copy 3/mcp-expert.md
+- agents/_all/agents_copy_3__task-decomposition-expert.md <- agents copy 3/task-decomposition-expert.md
+- agents/_all/agents_copy_3__test-engineer.md <- agents copy 3/test-engineer.md
+- agents/_all/agents_copy_3__typescript-pro.md <- agents copy 3/typescript-pro.md
+- agents/_all/_claude_agents__content-marketer.md <- .claude/agents/content-marketer.md
+- agents/_all/_claude_agents__frontend-developer.md <- .claude/agents/frontend-developer.md
+- agents/_all/_claude_agents__legal-advisor.md <- .claude/agents/legal-advisor.md
+- agents/_all/_claude_agents__prompt-engineer.md <- .claude/agents/prompt-engineer.md
+- agents/_all/_claude_agents__seo-analyzer.md <- .claude/agents/seo-analyzer.md
+- agents/_all/_claude_agents__seo-podcast-optimizer.md <- .claude/agents/seo-podcast-optimizer.md
+- agents/_all/_claude_agents__ui-ux-designer.md <- .claude/agents/ui-ux-designer.md
+- agents/_all/_claude_agents__video-editor.md <- .claude/agents/video-editor.md

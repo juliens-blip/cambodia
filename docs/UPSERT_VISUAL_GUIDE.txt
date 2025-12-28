@@ -1,0 +1,204 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                  UPSERT IMPLEMENTATION - VISUAL GUIDE                      ║
+║                        Cambodia Agri Analytics                             ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  PROBLEM: Duplicate Price Records                                          │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    BEFORE (using insert):
+
+    Seed #1:  ┌──────────────┐
+              │ 191 records  │
+              └──────────────┘
+
+    Seed #2:  ┌──────────────┬──────────────┐
+              │ 191 records  │ 191 DUPES    │ = 382 total ❌
+              └──────────────┴──────────────┘
+
+    Seed #3:  ┌──────────────┬──────────────┬──────────────┐
+              │ 191 records  │ 191 DUPES    │ 191 DUPES    │ = 573 total ❌
+              └──────────────┴──────────────┴──────────────┘
+
+    AFTER (using upsert):
+
+    Seed #1:  ┌──────────────┐
+              │ 191 records  │
+              └──────────────┘
+
+    Seed #2:  ┌──────────────┐
+              │ 191 records  │ (updated, no duplicates) ✅
+              └──────────────┘
+
+    Seed #3:  ┌──────────────┐
+              │ 191 records  │ (updated, no duplicates) ✅
+              └──────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  SOLUTION: Natural Key + Upsert                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Natural Key = commodity_id + date + source + destination_country
+
+    ┌─────────────┬────────────┬────────┬─────────────┬──────────────┐
+    │ commodity   │    date    │ source │ destination │   Result     │
+    ├─────────────┼────────────┼────────┼─────────────┼──────────────┤
+    │ cashew      │ 2024-01-01 │  MEF   │   NULL      │ Record #1 ✅ │
+    │ cashew      │ 2024-01-01 │  WITS  │   World     │ Record #2 ✅ │
+    │ cashew      │ 2024-01-01 │  WITS  │   USA       │ Record #3 ✅ │
+    │ cashew      │ 2024-01-01 │  MEF   │   NULL      │ UPSERT #1 🔄 │
+    └─────────────┴────────────┴────────┴─────────────┴──────────────┘
+
+    Records 1-3: Different natural keys → All stored
+    Row 4: Same natural key as #1 → Updates #1 instead of creating duplicate
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  DATABASE SCHEMA: Partial Unique Indexes                                   │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Index #1: FOR records WITH destination_country
+    ┌──────────────────────────────────────────────────────────────────┐
+    │ CREATE UNIQUE INDEX idx_prices_unique_with_destination           │
+    │ ON prices(commodity_id, date, source, destination_country)       │
+    │ WHERE destination_country IS NOT NULL;                           │
+    └──────────────────────────────────────────────────────────────────┘
+
+    Index #2: FOR records WITHOUT destination_country (NULL)
+    ┌──────────────────────────────────────────────────────────────────┐
+    │ CREATE UNIQUE INDEX idx_prices_unique_without_destination        │
+    │ ON prices(commodity_id, date, source)                            │
+    │ WHERE destination_country IS NULL;                               │
+    └──────────────────────────────────────────────────────────────────┘
+
+    Why two indexes?
+    → PostgreSQL treats NULL as distinct in unique constraints
+    → Partial indexes handle NULL and non-NULL separately
+    → Ensures correct duplicate detection in all cases
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  CODE CHANGES: insert → upsert                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    BEFORE (app/scheduler/jobs.py):
+    ┌──────────────────────────────────────────────────────────────────┐
+    │ # Store in Supabase                                              │
+    │ await supabase.insert_price(price_data)                          │
+    └──────────────────────────────────────────────────────────────────┘
+
+    AFTER (app/scheduler/jobs.py):
+    ┌──────────────────────────────────────────────────────────────────┐
+    │ # Store in Supabase using upsert to avoid duplicates            │
+    │ await supabase.upsert_price(price_data)                          │
+    └──────────────────────────────────────────────────────────────────┘
+
+    NEW METHOD (app/services/supabase_service.py):
+    ┌──────────────────────────────────────────────────────────────────┐
+    │ async def upsert_price(self, price_data: Dict) -> Dict:         │
+    │     result = self.client.table("prices").upsert(                │
+    │         price_data,                                              │
+    │         ignore_duplicates=False                                  │
+    │     ).execute()                                                  │
+    │     return result.data[0] if result.data else None               │
+    └──────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  IMPLEMENTATION STEPS                                                       │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    FOR NEW DATABASES:
+    ┌──────────────────────────────────────────────────────────────────┐
+    │ 1. Open Supabase Dashboard → SQL Editor                         │
+    │ 2. Execute: scripts/supabase_schema.sql                         │
+    │ 3. Deploy updated application code                              │
+    │ 4. Run: python scripts/seed_collectors.py                       │
+    └──────────────────────────────────────────────────────────────────┘
+
+    FOR EXISTING DATABASES:
+    ┌──────────────────────────────────────────────────────────────────┐
+    │ 1. BACKUP DATABASE (important!)                                 │
+    │ 2. Open Supabase Dashboard → SQL Editor                         │
+    │ 3. Execute: scripts/migrations/001_add_unique_constraint.sql    │
+    │ 4. Verify no duplicates remain (see query below)                │
+    │ 5. Re-deploy application if needed                              │
+    └──────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  VERIFICATION QUERIES                                                       │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Check for duplicates (should return 0 rows):
+    ┌──────────────────────────────────────────────────────────────────┐
+    │ SELECT                                                           │
+    │     commodity_id, date, source,                                  │
+    │     COALESCE(destination_country, 'NULL') as destination,        │
+    │     COUNT(*) as count                                            │
+    │ FROM prices                                                      │
+    │ GROUP BY commodity_id, date, source,                             │
+    │          COALESCE(destination_country, 'NULL')                   │
+    │ HAVING COUNT(*) > 1;                                             │
+    └──────────────────────────────────────────────────────────────────┘
+
+    Count total prices:
+    ┌──────────────────────────────────────────────────────────────────┐
+    │ SELECT COUNT(*) FROM prices;                                     │
+    └──────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  DATA FLOW DIAGRAM                                                          │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Collectors → Price Data → upsert_price() → Supabase
+
+         MEF ────┐
+                 │
+        WITS ────┼──→ price_data ──→ upsert_price() ──→ Supabase
+                 │                         ↓
+       GDrive ───┘                    Check natural key:
+                                      - Exists? → UPDATE
+                                      - New? → INSERT
+
+    Supabase Unique Indexes:
+    ┌─────────────────────────────────────────────┐
+    │  commodity_id + date + source + destination │ ← Natural Key
+    │                                             │
+    │  If match found: UPDATE existing record     │
+    │  If no match: INSERT new record             │
+    └─────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  FILES OVERVIEW                                                             │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    DOCUMENTATION:
+    📄 docs/UPSERT_IMPLEMENTATION.md     → Full technical guide
+    📄 docs/UPSERT_QUICK_START.md        → Quick start (60 seconds)
+    📄 CHANGELOG_UPSERT.md               → Detailed changelog
+    📄 IMPLEMENTATION_SUMMARY.md         → Executive summary
+
+    DATABASE:
+    🗄️ scripts/supabase_schema.sql       → Updated schema (new DBs)
+    🗄️ scripts/migrations/001_*.sql      → Migration (existing DBs)
+    🗄️ scripts/migrations/README.md      → Migration instructions
+
+    APPLICATION CODE:
+    💻 app/services/supabase_service.py  → upsert_price() method
+    💻 app/scheduler/jobs.py             → Uses upsert instead of insert
+
+┌────────────────────────────────────────────────────────────────────────────┐
+│  QUICK REFERENCE                                                            │
+└────────────────────────────────────────────────────────────────────────────┘
+
+    Natural Key:     commodity_id + date + source + destination_country
+    Method:          supabase.upsert_price(price_data)
+    Behavior:        INSERT new or UPDATE existing
+    Duplicates:      ❌ Prevented by unique indexes
+    NULL handling:   ✅ Correctly handled via partial indexes
+
+    Status:          ✅ READY FOR PRODUCTION
+    Breaking:        ❌ NO (backward compatible)
+    Tested:          ⏳ REQUIRES USER TESTING
+
+╔════════════════════════════════════════════════════════════════════════════╗
+║  Need help? See: docs/UPSERT_IMPLEMENTATION.md                             ║
+╚════════════════════════════════════════════════════════════════════════════╝

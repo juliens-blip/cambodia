@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(node test-imagen3.js:*)",
+      "Bash(node list-available-models.js:*)",
+      "Bash(node test-nano-banana.js:*)",
+      "Bash(npm run dev:*)",
+      "Bash(cat:*)",
+      "Bash(mkdir:*)",
+      "Bash(if [ -f \".env\" ])",
+      "Bash(then cat .env)",
+      "Bash(fi)",
+      "Bash(echo:*)",
+      "Bash(curl:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(then echo \"=== Environment Variables Check ===\")",
+      "Bash(else echo \".env file not found\")",
+      "Bash(if [ -f \".env.local\" ])",
+      "Bash(then echo \"=== .env.local Found ===\")",
+      "Bash(else echo \".env.local file not found\")",
+      "Bash(node -e:*)",
+      "Bash(node:*)",
+      "Bash(stripe:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

@@ -1,0 +1,71 @@
+{
+  "mcpServers": {
+    "context7": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@upstash/context7-mcp"
+      ],
+      "description": "Long-term context storage for Perplexity analyses and detected price patterns"
+    },
+    "fetch": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-fetch"
+      ],
+      "description": "HTTP requests for MEF API, WITS World Bank, and Perplexity API calls"
+    },
+    "supabase": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@supabase/mcp-server-supabase@latest",
+        "--read-only",
+        "--project-ref=xqfozbocgyrelznccweh"
+      ],
+      "env": {
+        "SUPABASE_ACCESS_TOKEN": "${SUPABASE_ACCESS_TOKEN}"
+      },
+      "description": "Direct queries to Supabase database for Cambodia Agri Analytics (project: xqfozbocgyrelznccweh)"
+    },
+    "browsermcp": {
+      "command": "npx",
+      "args": [
+        "@browsermcp/mcp@latest"
+      ],
+      "description": "Browser automation for scraping Open Development Cambodia and JavaScript-rendered sites"
+    },
+    "executeautomation-playwright-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@executeautomation/playwright-mcp-server"
+      ],
+      "description": "Advanced browser automation for E2E tests, ODC scraping, and automated report screenshots"
+    },
+    "chroma": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-chroma"
+      ],
+      "env": {
+        "CHROMA_HOST": "${CHROMA_HOST:-localhost}",
+        "CHROMA_PORT": "${CHROMA_PORT:-8000}"
+      },
+      "description": "Semantic search for PDF documents, Perplexity analyses, and price context retrieval"
+    }
+  },
+  "environment": {
+    "SUPABASE_ACCESS_TOKEN": "Required - Get from Supabase Dashboard > Account > Access Tokens",
+    "CHROMA_HOST": "Optional - Default: localhost (use Docker or local Python server)",
+    "CHROMA_PORT": "Optional - Default: 8000"
+  },
+  "notes": {
+    "supabase_project": "xqfozbocgyrelznccweh",
+    "supabase_url": "https://xqfozbocgyrelznccweh.supabase.co",
+    "chromadb_setup": "Run: docker run -d -p 8000:8000 chromadb/chroma OR pip install chromadb",
+    "test_scripts": "Run test scripts in tests/mcp/ to verify each MCP server"
+  }
+}

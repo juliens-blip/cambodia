@@ -1,0 +1,253 @@
+{
+  "metadata": {
+    "generated_at": "2025-12-25T21:47:52.906676",
+    "version": "1.0.0"
+  },
+  "summary": {
+    "commodities_count": 2,
+    "prices_count": 54,
+    "production_count": 31,
+    "perplexity_analyses_count": 0,
+    "claude_reports_count": 0,
+    "data_sources_count": 4,
+    "price_sources": [
+      "MEF",
+      "WITS"
+    ],
+    "production_sources": [
+      "ODC",
+      "TEST"
+    ]
+  },
+  "integrity_checks": {
+    "prices": {
+      "null_values": {
+        "total_records": 54,
+        "null_commodity_id": 0,
+        "null_date": 0,
+        "null_price_usd_per_unit": 0,
+        "null_source": 0,
+        "null_percentage": 0.0
+      },
+      "value_validation": {
+        "negative_prices": 0,
+        "zero_prices": 0,
+        "outliers_count": 3,
+        "mean_price": 147510.31,
+        "stdev_price": 217121.16,
+        "min_price": 32111.38,
+        "max_price": 1189958.32
+      },
+      "unit_consistency": {
+        "thousand_usd_records": 54,
+        "usd_records": 0,
+        "no_unit_specified": 0,
+        "warning": null
+      },
+      "duplicates": {
+        "potential_duplicates": 0,
+        "sample_duplicates": []
+      }
+    },
+    "production": {
+      "null_values": {
+        "total_records": 31,
+        "null_commodity_id": 0,
+        "null_year": 0,
+        "null_province": 0,
+        "null_source": 0
+      },
+      "data_completeness": {
+        "area_hectares_coverage": 100.0,
+        "production_tons_coverage": 100.0,
+        "yield_kg_per_ha_coverage": 0.0,
+        "geolocation_coverage": 0.0
+      },
+      "value_validation": {
+        "negative_area": 0,
+        "negative_production": 0,
+        "negative_yield": 0
+      },
+      "duplicates": {
+        "potential_duplicates": 0,
+        "sample_duplicates": []
+      }
+    },
+    "foreign_keys": {
+      "foreign_key_validation": {
+        "valid_commodity_ids": [
+          "10f49e7a-21e2-4108-9b9c-612d14a72f21",
+          "822301a4-ee9d-4d13-ba98-09aebdbc32eb"
+        ],
+        "commodity_names": {
+          "10f49e7a-21e2-4108-9b9c-612d14a72f21": "cashew",
+          "822301a4-ee9d-4d13-ba98-09aebdbc32eb": "rubber"
+        },
+        "prices_invalid_fk": 0,
+        "production_invalid_fk": 0,
+        "status": "PASS"
+      }
+    }
+  },
+  "consistency_checks": {
+    "source_comparison": {
+      "total_overlapping_records": 2,
+      "sample_comparisons": [
+        {
+          "commodity_id": "822301a4-ee9d-4d13-ba98-09aebdbc32eb",
+          "date": "2023-01-01",
+          "mef_value": 54233.65,
+          "wits_value": 1189958.32,
+          "difference_percentage": 182.56
+        },
+        {
+          "commodity_id": "822301a4-ee9d-4d13-ba98-09aebdbc32eb",
+          "date": "2022-01-01",
+          "mef_value": 33949.02,
+          "wits_value": 930207.22,
+          "difference_percentage": 185.92
+        }
+      ],
+      "high_discrepancy_count": 2,
+      "avg_difference_percentage": 184.24
+    }
+  },
+  "temporal_checks": {
+    "price_gaps": {
+      "total_commodity_source_combinations": 3,
+      "combinations_with_gaps": 2,
+      "gap_details": [
+        {
+          "commodity_id": "10f49e7a-21e2-4108-9b9c-612d14a72f21",
+          "source": "WITS",
+          "total_records": 3,
+          "date_range": "2021-01-01 to 2023-01-01",
+          "gaps_count": 2,
+          "largest_gap_days": 365,
+          "sample_gaps": [
+            {
+              "from": "2021-01-01",
+              "to": "2022-01-01",
+              "gap_days": 365
+            },
+            {
+              "from": "2022-01-01",
+              "to": "2023-01-01",
+              "gap_days": 365
+            }
+          ]
+        },
+        {
+          "commodity_id": "822301a4-ee9d-4d13-ba98-09aebdbc32eb",
+          "source": "WITS",
+          "total_records": 3,
+          "date_range": "2021-01-01 to 2023-01-01",
+          "gaps_count": 2,
+          "largest_gap_days": 365,
+          "sample_gaps": [
+            {
+              "from": "2021-01-01",
+              "to": "2022-01-01",
+              "gap_days": 365
+            },
+            {
+              "from": "2022-01-01",
+              "to": "2023-01-01",
+              "gap_days": 365
+            }
+          ]
+        }
+      ]
+    },
+    "production_gaps": {
+      "total_combinations": 11,
+      "combinations_with_gaps": 0,
+      "gap_details": []
+    }
+  },
+  "coverage_metrics": {
+    "price_coverage_by_commodity": {
+      "rubber": 51,
+      "cashew": 3
+    },
+    "price_coverage_by_source": {
+      "MEF": 48,
+      "WITS": 6
+    },
+    "price_temporal_coverage": {
+      "earliest_date": "2021-01-01",
+      "latest_date": "2025-07-01",
+      "total_records": 54
+    },
+    "production_coverage_by_commodity": {
+      "rubber": 16,
+      "cashew": 15
+    },
+    "geographic_coverage": {
+      "total_provinces": 5,
+      "provinces": [
+        "Kampong Cham",
+        "Kampong Thom",
+        "Kratie",
+        "Mondulkiri",
+        "Ratanakiri"
+      ]
+    },
+    "production_temporal_coverage": {
+      "earliest_year": 2021,
+      "latest_year": 2024,
+      "total_records": 31
+    }
+  },
+  "recommendations": [
+    {
+      "priority": "HIGH",
+      "category": "Data Coverage",
+      "issue": "Low price data volume",
+      "recommendation": "Only 54 price records found. Consider collecting more historical data from MEF and WITS.",
+      "action": "Extend date range in collectors to fetch 10+ years of data"
+    },
+    {
+      "priority": "HIGH",
+      "category": "Data Coverage",
+      "issue": "Low production data volume",
+      "recommendation": "Only 31 production records found. Production data is critical for analysis.",
+      "action": "Run seed with --include-odc flag, or implement additional scrapers for government agricultural reports"
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "Temporal Continuity",
+      "issue": "Found 2 commodity-source combinations with date gaps",
+      "recommendation": "Historical data has gaps. Consider re-collecting data for missing periods.",
+      "action": "Review gap_details in report and target specific date ranges for re-collection"
+    },
+    {
+      "priority": "LOW",
+      "category": "Data Coverage",
+      "issue": "Limited data sources (2 sources)",
+      "recommendation": "Diversify data sources to improve reliability and coverage",
+      "action": "Add FAO, UNCTAD, or local market price collectors"
+    },
+    {
+      "priority": "MEDIUM",
+      "category": "Geographic Coverage",
+      "issue": "Limited geographic coverage (5 provinces)",
+      "recommendation": "Cambodia has 25 provinces. Expand data collection to cover more regions.",
+      "action": "Search for provincial-level agricultural statistics or KML files for missing provinces"
+    },
+    {
+      "priority": "LOW",
+      "category": "Data Completeness",
+      "issue": "Low completeness for: yield_kg_per_ha_coverage, geolocation_coverage",
+      "recommendation": "Enrich production data with missing fields where possible",
+      "action": "Cross-reference with additional sources or use estimation models for missing values"
+    },
+    {
+      "priority": "HIGH",
+      "category": "Analytics",
+      "issue": "No AI analyses or reports generated yet",
+      "recommendation": "Run daily_pipeline to generate Perplexity analyses and Claude reports",
+      "action": "Execute: python scripts/seed_collectors.py (then wait for scheduled job, or manually trigger daily_pipeline)"
+    }
+  ]
+}
