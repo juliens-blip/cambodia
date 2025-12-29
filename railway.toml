@@ -9,11 +9,13 @@ dockerfilePath = "Dockerfile"
 [deploy]
 # Nombre de replicas
 numReplicas = 1
-# Port dynamique (Railway définit $PORT)
-startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+# NE PAS utiliser startCommand - laisser le Dockerfile CMD gérer ça
+# Le Dockerfile utilise start.sh qui interprète correctement $PORT
+
 # Healthcheck
 healthcheckPath = "/health"
-healthcheckTimeout = 100
+healthcheckTimeout = 300
+
 # Redémarrage automatique en cas de crash
 restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 3
+restartPolicyMaxRetries = 5

@@ -1,0 +1,8 @@
+# Handle line endings automatically for text files 
+* text=auto
+
+# Shell scripts must use LF (Unix format)
+*.sh text eol=lf
+
+# Dockerfile uses LF
+Dockerfile text eol=lf

@@ -28,7 +28,13 @@ class SupabaseService:
         Args:
             url: Supabase project URL
             key: Supabase anon/service key
+        
+        Raises:
+            ValueError: If url or key is empty
         """
+        if not url or not key:
+            raise ValueError("Supabase URL and key are required. Please set SUPABASE_URL and SUPABASE_KEY environment variables.")
+        
         self.client: Client = create_client(url, key)
         logger.info(f"Supabase service initialized ({url})")
 

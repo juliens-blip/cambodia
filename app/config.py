@@ -10,9 +10,9 @@ class Settings(BaseSettings):
     app_name: str = "Cambodia Agri Analytics"
     debug: bool = False
 
-    # Supabase
-    supabase_url: str
-    supabase_key: str
+    # Supabase (optional for basic startup)
+    supabase_url: str = ""
+    supabase_key: str = ""
     supabase_access_token: Optional[str] = None
 
     # ChromaDB
@@ -20,12 +20,12 @@ class Settings(BaseSettings):
     chroma_port: int = 8000
     chroma_persist_path: str = "chroma_data"
 
-    # Perplexity API
-    perplexity_api_key: str
+    # Perplexity API (optional)
+    perplexity_api_key: str = ""
     perplexity_max_requests_per_month: int = 1000
 
-    # Google Drive API
-    google_drive_api_key: str
+    # Google Drive API (optional)
+    google_drive_api_key: str = ""
     tesseract_cmd: Optional[str] = None
     poppler_path: Optional[str] = None
     tessdata_prefix: Optional[str] = None
