@@ -22,7 +22,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements-streamlit.txt ./
 COPY requirements-railway.txt ./
 
-# Installer les dépendances (API + Streamlit)
+# Installer torch CPU-only d'abord (beaucoup plus léger ~200MB vs ~800MB)
+RUN pip install --no-cache-dir torch --index-url https://download.pytorch.org/whl/cpu
+
+# Installer les autres dépendances (API + Streamlit)
 RUN pip install --no-cache-dir -r requirements-railway.txt -r requirements-streamlit.txt
 
 # Copier le script de démarrage

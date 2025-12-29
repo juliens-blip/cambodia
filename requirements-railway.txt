@@ -1,4 +1,4 @@
-# Requirements for Railway deployment (full features)
+# Requirements for Railway deployment (with semantic search)
 # Core FastAPI
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
@@ -19,11 +19,10 @@ pytz>=2024.1
 xmltodict>=0.13.0
 numpy>=1.24.0
 
-# Semantic Search (for local document analysis)
+# Semantic Search (CPU-only, lighter weight)
+# Use --index-url for CPU-only torch to save ~500MB
 sentence-transformers>=2.2.0
-torch>=2.0.0
 
-# Note: This adds ~500MB to the container but enables:
-# - Semantic search in local PDFs
-# - Document-based RAG analysis
-# - Multilingual embeddings (Khmer, English, Vietnamese)
+# Note: torch will be installed by sentence-transformers
+# Railway memory limit may require the smaller model
+# Consider using "all-MiniLM-L6-v2" instead of "multilingual-e5-large" in production
