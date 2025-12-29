@@ -1977,3 +1977,114 @@ Analyse complète: `tasks/fix-semantic-search-connection/01_analysis.md`
 
 *Session effectuée par Claude Sonnet 4.5 le 2025-12-30*
 *Commit: c09e138 | Fix: Async embedding loading avec thread daemon*
+
+---
+
+## SESSION 2025-12-30 (suite): FIX RAILWAY AUTO-DETECTION
+
+**Contexte:** Après le commit c09e138, les erreurs "Connection refused" persistaient pour les 3 sections (market data, documents, Twitter).
+
+### Diagnostic
+
+**Symptômes:**
+- ✅ API démarre correctement avec modèle en background
+- ❌ Aucun log de start.py dans Railway (`[API] Starting...`, `[UI] Starting...`)
+- ❌ Logs montrent uniquement uvicorn qui démarre directement
+- ❌ Frontend ne peut pas se connecter à l'API → Connection refused
+
+**Root Cause:** Railway auto-détection lance **uvicorn directement** au lieu d'exécuter `start.py`. Résultat :
+- API démarre seule sur port 8000
+- Streamlit ne démarre PAS du tout
+- Pas de communication API ↔ Streamlit
+- Frontend inaccessible
+
+**Preuve:** WebFetch de `/health` renvoie HTML Streamlit au lieu de JSON, confirmant que Railway lance API et Streamlit séparément au lieu du script combiné.
+
+### Solution: Forcer start.py via railway.toml
+
+**Commit efd0a9e:**
+
+#### 1. railway.toml - Override auto-detection
+```toml
+[deploy]
+# Commande de démarrage (override auto-detection Railway)
+startCommand = "python start.py"
+```
+
+Empêche Railway de détecter automatiquement FastAPI et de lancer uvicorn directement.
+
+#### 2. start.py - Amélioration logging et délai
+```python
+def main():
+    # Start API in background thread
+    api_thread = threading.Thread(target=run_api, daemon=True)
+    api_thread.start()
+
+    # Wait for API to initialize
+    print("[STARTUP] Waiting 3 seconds for API to initialize...", flush=True)
+    time.sleep(3)
+
+    # Run Streamlit in main thread
+    run_streamlit()
+
+def run_streamlit():
+    print(f"[UI] API_BASE_URL set to: {os.environ['API_BASE_URL']}", flush=True)
+    print(f"[UI] Launching Streamlit...", flush=True)
+
+    try:
+        subprocess.run([...], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"[UI] ERROR: Streamlit crashed with exit code {e.returncode}", flush=True)
+        sys.exit(1)
+```
+
+**Améliorations:**
+- Délai de 3s pour que l'API s'initialise avant Streamlit
+- Meilleur logging avec flush=True pour Railway
+- Gestion d'erreurs explicite pour debugging
+
+### Architecture Finale
+
+```
+Railway → startCommand: "python start.py"
+           ↓
+       [start.py]
+           ├─ API (port 8000) en thread daemon
+           ├─ Sleep 3s
+           └─ Streamlit (PORT) en main thread
+                ↓
+           Streamlit → localhost:8000 (API)
+                ↓
+         ✅ Communication interne OK
+```
+
+### Résultat Attendu
+
+Logs Railway devraient maintenant montrer:
+```
+==================================================
+Starting Cambodia Agri Analytics...
+Railway PORT: 8080
+==================================================
+[API] Starting FastAPI on port 8000...
+[STARTUP] Waiting 3 seconds for API to initialize...
+INFO: Uvicorn running on http://0.0.0.0:8000
+🚀 Starting Cambodia Agri Analytics API...
+ℹ️ Embedding model loading started in background
+✅ API startup complete
+[UI] Starting Streamlit on port 8080...
+[UI] API_BASE_URL set to: http://localhost:8000
+[UI] Launching Streamlit...
+```
+
+### Commits de la Session Complète
+
+1. `428bfb4` - Sync embedding loading (ÉCHEC - timeout)
+2. `c09e138` - Async embedding loading (SOLUTION partielle - API OK mais pas Streamlit)
+3. `a5c8d83` - Documentation APEX
+4. `efd0a9e` - Force start.py avec startCommand (SOLUTION complète)
+
+---
+
+*Session effectuée par Claude Sonnet 4.5 le 2025-12-30*
+*Commits: c09e138 + efd0a9e | Fix: Async loading + Railway startCommand*

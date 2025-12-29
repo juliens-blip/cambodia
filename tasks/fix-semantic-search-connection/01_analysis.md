@@ -258,7 +258,160 @@ Loading embedding model: intfloat/multilingual-e5-small
    - ✅ Documents (PDF via pgvector semantic search)
    - ✅ Twitter Data
 
-## Commits Finaux
+## Commits (Session 1 & 2)
+
+- `428bfb4` - fix: pre-load embedding model at API startup to prevent timeout (ÉCHEC - sync blocking)
+- `c09e138` - fix: load embedding model asynchronously to prevent Railway timeout (SOLUTION partielle)
+- `a5c8d83` - docs: update APEX analysis with async loading solution
+
+## Problème Persistant #2 (Après c09e138)
+
+**Symptômes:** Les 3 erreurs "[Errno 111] Connection refused" persistent pour market data, documents et Twitter.
+
+**Logs Railway:** L'API démarre correctement avec le modèle en background, MAIS aucun log de start.py :
+```
+# Logs attendus mais ABSENTS :
+[API] Starting FastAPI on port 8000...
+[UI] Starting Streamlit on port 8080...
+
+# Logs présents (uniquement API) :
+INFO: Started server process [3]
+2025-12-29 23:40:35,991 - app.main - INFO - 🚀 Starting Cambodia Agri Analytics API...
+INFO: Uvicorn running on http://0.0.0.0:8000
+```
+
+**Root Cause #2:** Railway auto-détection lance **uvicorn directement** au lieu d'exécuter `start.py` du Dockerfile CMD. Résultat :
+- ✅ API démarre sur port 8000
+- ❌ Streamlit ne démarre PAS du tout
+- ❌ Aucune communication API ↔ Streamlit
+- ❌ Frontend ne peut pas appeler l'API → Connection refused
+
+**Preuve:** WebFetch de https://cambodia.up.railway.app/health renvoie une page Streamlit HTML au lieu d'un JSON de l'API, confirmant que seule l'interface Streamlit (probablement lancée séparément par Railway) est accessible, pas l'API combinée.
+
+## Solution Finale #2 (Commit efd0a9e)
+
+### Changements
+
+#### 1. railway.toml - Forcer l'utilisation de start.py
+```toml
+[deploy]
+numReplicas = 1
+
+# Commande de démarrage (override auto-detection Railway)
+startCommand = "python start.py"
+
+# ... reste de la config
+```
+
+**Avantage:** Empêche Railway d'override le CMD du Dockerfile avec sa propre détection auto.
+
+#### 2. start.py - Délai pour l'API + Meilleur logging
+```python
+def main():
+    print("=" * 50, flush=True)
+    print("Starting Cambodia Agri Analytics...", flush=True)
+    print(f"Railway PORT: {os.environ.get('PORT', 'not set')}", flush=True)
+
+    # Start API in background thread
+    api_thread = threading.Thread(target=run_api, daemon=True)
+    api_thread.start()
+
+    # Wait for API to initialize
+    print("[STARTUP] Waiting 3 seconds for API to initialize...", flush=True)
+    time.sleep(3)
+
+    # Run Streamlit in main thread
+    run_streamlit()
+
+def run_streamlit():
+    port = os.environ.get("PORT", "8501")
+    os.environ["API_BASE_URL"] = "http://localhost:8000"
+
+    print(f"[UI] API_BASE_URL set to: {os.environ['API_BASE_URL']}", flush=True)
+    print(f"[UI] Launching Streamlit...", flush=True)
+
+    try:
+        subprocess.run([...], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"[UI] ERROR: Streamlit crashed with exit code {e.returncode}", flush=True)
+        sys.exit(1)
+```
+
+**Avantages:**
+- Délai de 3s pour que l'API soit prête avant Streamlit
+- Meilleur logging pour debugger
+- Gestion d'erreurs explicite
+
+## Architecture Finale
+
+```
+[Railway reçoit push] → Rebuild Docker
+                          ↓
+                      startCommand: "python start.py"
+                          ↓
+[start.py] → main()
+              ├→ Lance API en thread daemon (port 8000)
+              ├→ Sleep 3s (API s'initialise)
+              └→ Lance Streamlit en main thread (PORT 8080)
+                  ↓
+              Streamlit connect à http://localhost:8000
+                  ↓
+[Utilisateur] → https://cambodia.up.railway.app
+                 ↓
+              Streamlit UI (port 8080)
+                 ↓
+              API calls → localhost:8000
+                 ↓
+              ✅ Toutes les sections se chargent
+```
+
+## Logs Attendus (Après efd0a9e)
+
+```
+==================================================
+Starting Cambodia Agri Analytics...
+Railway PORT: 8080
+Python: /usr/local/bin/python
+==================================================
+[API] Starting FastAPI on port 8000...
+[STARTUP] Waiting 3 seconds for API to initialize...
+INFO: Started server process [3]
+🚀 Starting Cambodia Agri Analytics API...
+✅ Supabase initialized
+ℹ️ Embedding model loading started in background
+✅ API startup complete
+INFO: Uvicorn running on http://0.0.0.0:8000
+[UI] Starting Streamlit on port 8080...
+[UI] API_BASE_URL set to: http://localhost:8000
+[UI] Launching Streamlit...
+
+# 30-60s plus tard (modèle chargé)
+🔄 Pre-loading embedding model in background...
+✅ Model loaded successfully: 1024 dimensions
+```
+
+## Commits Finaux (Tous)
 
 - `428bfb4` - fix: pre-load embedding model at API startup to prevent timeout (ÉCHEC)
-- `c09e138` - fix: load embedding model asynchronously to prevent Railway timeout (SOLUTION)
+- `c09e138` - fix: load embedding model asynchronously to prevent Railway timeout (SOLUTION partielle)
+- `a5c8d83` - docs: update APEX analysis with async loading solution
+- `efd0a9e` - fix: force Railway to use start.py for combined API+Streamlit launch (SOLUTION complète)
+
+## Tests de Validation Finale
+
+Après redéploiement Railway (~5-7 min):
+
+1. **Vérifier logs Railway:**
+   - ✅ Voir "Starting Cambodia Agri Analytics..."
+   - ✅ Voir "[API] Starting FastAPI on port 8000..."
+   - ✅ Voir "[UI] Launching Streamlit..."
+
+2. **Tester https://cambodia.up.railway.app/Scenario_Analysis:**
+   - ✅ Market Data charge
+   - ✅ Documents charge (semantic search)
+   - ✅ Twitter Data charge
+   - ❌ Plus d'erreurs "Connection refused"
+
+3. **Vérifier API directement:**
+   - GET https://cambodia.up.railway.app/health → devrait retourner Streamlit HTML (proxy)
+   - Streamlit → localhost:8000/health → devrait fonctionner en interne
