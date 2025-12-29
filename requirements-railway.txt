@@ -1,34 +1,28 @@
 # Minimal requirements for Railway deployment
 # Core FastAPI
-fastapi==0.109.0
-uvicorn[standard]==0.27.0
-python-dotenv==1.0.0
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-dotenv>=1.0.0
 
-# Database
-supabase==2.3.0
-
-# HTTP Client
-httpx==0.26.0
+# Database (supabase gère ses propres dépendances httpx)
+supabase>=2.3.0
 
 # Data Validation
-pydantic==2.5.3
-pydantic-settings==2.1.0
+pydantic>=2.5.3
+pydantic-settings>=2.1.0
 
 # Scheduler (for cron jobs)
-apscheduler==3.10.4
-pytz==2024.1
+apscheduler>=3.10.4
+pytz>=2024.1
 
 # Data Processing
-xmltodict==0.13.0
-
-# Utilities
-pytest==7.4.4
-pytest-asyncio==0.23.3
+xmltodict>=0.13.0
 
 # Note: Heavy dependencies excluded for faster deployment:
 # - chromadb (150 MB)
 # - streamlit (80 MB)
 # - plotly (50 MB)
 # - tesseract/pdf processing (will add if needed)
+# - pytest (not needed in production)
 #
 # To enable full features, use: pip install -r requirements.txt
