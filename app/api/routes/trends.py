@@ -362,13 +362,13 @@ Be realistic but optimistic. Keep response under 300 words."""
         
         prompt = scenario_prompts.get(scenario_type, scenario_prompts['realistic'])
         
-        # Call Perplexity directly
-        result = await perplexity.query(prompt)
+        # Call Perplexity directly using internal _query method
+        result = await perplexity._query(prompt, commodity, f"scenario_{scenario_type}")
         
         return {
             "commodity": commodity,
             "scenario_type": scenario_type,
-            "analysis": result.get("answer", "Analysis not available"),
+            "analysis": result.get("response_text", "Analysis not available"),
             "citations": result.get("citations", []),
             "price_context": {
                 "current_price": current_price,
