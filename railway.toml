@@ -10,10 +10,11 @@ dockerfilePath = "Dockerfile"
 # Nombre de replicas
 numReplicas = 1
 
-# Healthcheck désactivé - Streamlit multipage a des problèmes avec les paths
-# healthcheckPath = "/_stcore/health"
+# Healthcheck désactivé - Streamlit (PORT principal) n'a pas d'endpoint /health
+# L'API (port 8000) a /health mais Railway check le PORT principal uniquement
+# healthcheckPath = "/health"
 healthcheckTimeout = 300
-startupDelaySeconds = 120
+startupDelaySeconds = 300
 
 # Redémarrage automatique en cas de crash
 restartPolicyType = "ON_FAILURE"

@@ -82,19 +82,27 @@ async def lifespan(app: FastAPI):
         logger.info("ℹ️ API will start but database features may not work")
         supabase_service = None
 
-    # Pre-load embedding model at startup (takes 30-60s on Railway)
-    # This prevents timeout on first search request
+    # Pre-load embedding model in background thread (takes 30-60s on Railway)
+    # This prevents blocking the API startup while still pre-loading
     if SEMANTIC_AVAILABLE:
-        try:
-            logger.info("🔄 Pre-loading embedding model (this may take 30-60s)...")
-            from app.services.embedding_service import get_embedding_service
-            embedding_service = get_embedding_service()
-            logger.info(f"✅ Embedding model loaded: {embedding_service.dimension} dimensions")
-            app.state.embedding_service = embedding_service
-        except Exception as e:
-            logger.error(f"❌ Failed to load embedding model: {e}")
-            logger.info("ℹ️ Semantic search will not work until model is loaded")
-            app.state.embedding_service = None
+        import threading
+
+        def load_embedding_model():
+            try:
+                logger.info("🔄 Pre-loading embedding model in background (this may take 30-60s)...")
+                from app.services.embedding_service import get_embedding_service
+                embedding_service = get_embedding_service()
+                logger.info(f"✅ Embedding model loaded: {embedding_service.dimension} dimensions")
+                app.state.embedding_service = embedding_service
+            except Exception as e:
+                logger.error(f"❌ Failed to load embedding model: {e}")
+                app.state.embedding_service = None
+
+        # Start loading in background thread
+        embedding_thread = threading.Thread(target=load_embedding_model, daemon=True)
+        embedding_thread.start()
+        app.state.embedding_thread = embedding_thread
+        logger.info("ℹ️ Embedding model loading started in background")
     else:
         app.state.embedding_service = None
 

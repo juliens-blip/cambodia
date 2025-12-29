@@ -32,14 +32,38 @@ _cache = None
 _budget = None
 
 
-def get_services():
-    """Get or initialize services."""
+def get_services(app_state=None):
+    """Get or initialize services.
+
+    If app_state is provided and has a pre-loaded embedding service, use it.
+    Otherwise, load the embedding model (which may take 30-60s on first call).
+    """
     global _supabase, _embedding, _search, _perplexity, _cache, _budget
 
     if _supabase is None:
         _supabase = SupabaseService(settings.supabase_url, settings.supabase_key)
+
     if _embedding is None:
-        _embedding = EmbeddingService()
+        # Try to use pre-loaded embedding service from app.state
+        if app_state and hasattr(app_state, 'embedding_service') and app_state.embedding_service:
+            _embedding = app_state.embedding_service
+            logger.info("[SEARCH] Using pre-loaded embedding service")
+        else:
+            # Check if embedding is still loading in background
+            if app_state and hasattr(app_state, 'embedding_thread'):
+                thread = app_state.embedding_thread
+                if thread.is_alive():
+                    logger.info("[SEARCH] Waiting for embedding model to finish loading...")
+                    thread.join(timeout=90)  # Wait up to 90s
+                    if hasattr(app_state, 'embedding_service') and app_state.embedding_service:
+                        _embedding = app_state.embedding_service
+                        logger.info("[SEARCH] Using pre-loaded embedding service (after wait)")
+
+            # Fallback: load synchronously if not available
+            if _embedding is None:
+                logger.info("[SEARCH] Loading embedding service synchronously...")
+                _embedding = EmbeddingService()
+
     if _search is None:
         _search = SemanticSearchService(_supabase, _embedding)
     if _perplexity is None:
