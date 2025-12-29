@@ -11,6 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
+from ui.config import STATS_URL, TRENDS_SUMMARY_URL, ALERTS_URL
 
 # Page config
 st.set_page_config(page_title="Admin", page_icon="📊", layout="wide")
@@ -20,9 +21,7 @@ language = render_language_selector()
 t = get_all_translations(language)
 
 # API endpoints
-API_URL = "http://localhost:8000/api/v1/stats"
-TRENDS_SUMMARY_URL = "http://localhost:8000/api/v1/trends/summary"
-ALERTS_URL = "http://localhost:8000/api/v1/trends/alerts"
+API_URL = STATS_URL
 
 # Title
 st.title(f"📊 {t['admin_title']}")

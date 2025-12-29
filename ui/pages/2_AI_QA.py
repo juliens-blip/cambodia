@@ -8,6 +8,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
+from ui.config import RAG_URL
 
 # Page config
 st.set_page_config(page_title="AI Q&A", page_icon="💬", layout="wide")
@@ -17,7 +18,7 @@ language = render_language_selector()
 t = get_all_translations(language)
 
 # API endpoint
-API_URL = "http://localhost:8000/api/v1/rag/query"
+API_URL = RAG_URL
 
 # Title
 st.title(f"💬 {t['chat_title']}")

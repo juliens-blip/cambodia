@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
+from ui.config import API_BASE_URL
 
 # Page config
 st.set_page_config(page_title="Scenario Analysis", page_icon="📊", layout="wide")
@@ -19,7 +20,7 @@ language = render_language_selector()
 t = get_all_translations(language)
 
 # API endpoints
-BASE_URL = "http://localhost:8000/api/v1"
+BASE_URL = f"{API_BASE_URL}/api/v1"
 
 # Title
 st.title(f"📊 {t.get('scenario_title', 'Multi-Perspective Analysis')}")
