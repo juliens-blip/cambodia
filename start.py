@@ -49,21 +49,27 @@ def run_streamlit():
     port = os.environ.get("PORT", "8501")
     print(f"[UI] Starting Streamlit on port {port}...", flush=True)
 
-    # DON'T wait for API - start Streamlit immediately so Railway sees a process
-    # The UI will show temporary errors while API loads, but container won't be killed
-    print("[UI] Starting Streamlit immediately (API may still be loading)...", flush=True)
-
     # Set API_BASE_URL for internal communication
     os.environ["API_BASE_URL"] = "http://localhost:8000"
 
-    subprocess.run([
-        sys.executable, "-m", "streamlit", "run",
-        "ui/streamlit_app.py",
-        "--server.port", port,
-        "--server.address", "0.0.0.0",
-        "--server.headless", "true",
-        "--browser.gatherUsageStats", "false"
-    ])
+    print(f"[UI] API_BASE_URL set to: {os.environ['API_BASE_URL']}", flush=True)
+    print(f"[UI] Launching Streamlit...", flush=True)
+
+    try:
+        subprocess.run([
+            sys.executable, "-m", "streamlit", "run",
+            "ui/streamlit_app.py",
+            "--server.port", port,
+            "--server.address", "0.0.0.0",
+            "--server.headless", "true",
+            "--browser.gatherUsageStats", "false"
+        ], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"[UI] ERROR: Streamlit crashed with exit code {e.returncode}", flush=True)
+        sys.exit(1)
+    except Exception as e:
+        print(f"[UI] ERROR: Streamlit failed to start: {e}", flush=True)
+        sys.exit(1)
 
 
 def main():
@@ -76,6 +82,10 @@ def main():
     # Start API in background thread
     api_thread = threading.Thread(target=run_api, daemon=True)
     api_thread.start()
+
+    # Wait a bit for API to start (2-5 seconds)
+    print("[STARTUP] Waiting 3 seconds for API to initialize...", flush=True)
+    time.sleep(3)
 
     # Run Streamlit in main thread (this is what Railway sees)
     run_streamlit()

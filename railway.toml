@@ -10,6 +10,9 @@ dockerfilePath = "Dockerfile"
 # Nombre de replicas
 numReplicas = 1
 
+# Commande de démarrage (override auto-detection Railway)
+startCommand = "python start.py"
+
 # Healthcheck désactivé - Streamlit (PORT principal) n'a pas d'endpoint /health
 # L'API (port 8000) a /health mais Railway check le PORT principal uniquement
 # healthcheckPath = "/health"
