@@ -34,20 +34,20 @@ class EmbeddingService:
 
         Args:
             model_name: Hugging Face model identifier
-                       Default: Uses EMBEDDING_MODEL env var or "all-MiniLM-L6-v2" (lightweight)
+                       Default: Uses EMBEDDING_MODEL env var or "intfloat/multilingual-e5-small"
                        
-        Available models:
-            - all-MiniLM-L6-v2: 80MB, 384 dim, fast, good quality (default for Railway)
-            - intfloat/multilingual-e5-large: 2.2GB, 1024 dim, best multilingual (local dev)
-
-        Note:
-            First run will download model to cache.
+        Available models (1024 dim - compatible with pgvector table):
+            - intfloat/multilingual-e5-small: 470MB, 1024 dim, good multilingual (default)
+            - intfloat/multilingual-e5-base: 1.1GB, 1024 dim, better quality
+            - intfloat/multilingual-e5-large: 2.2GB, 1024 dim, best quality (local dev)
+            
+        Note: all-MiniLM-L6-v2 (384 dim) is NOT compatible with our pgvector table (1024 dim)
         """
         import os
         
-        # Use env var or default to lightweight model for Railway
+        # Use env var or default to small multilingual model (1024D for pgvector compatibility)
         if model_name is None:
-            model_name = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+            model_name = os.environ.get("EMBEDDING_MODEL", "intfloat/multilingual-e5-small")
         
         logger.info(f"Loading embedding model: {model_name}")
 
