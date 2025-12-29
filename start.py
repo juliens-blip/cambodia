@@ -49,12 +49,12 @@ def run_streamlit():
     port = os.environ.get("PORT", "8501")
     print(f"[UI] Starting Streamlit on port {port}...", flush=True)
 
-    # Wait for API to be ready (up to 60 seconds for model loading)
+    # Wait for API to be ready (up to 120 seconds for model loading on Railway)
     print("[UI] Waiting for API to be ready...", flush=True)
-    if wait_for_port(8000, timeout=60):
+    if wait_for_port(8000, timeout=120):
         print("[UI] API is ready!", flush=True)
     else:
-        print("[UI] WARNING: API not ready after 60s, continuing anyway...", flush=True)
+        print("[UI] WARNING: API not ready after 120s, continuing anyway...", flush=True)
 
     # Set API_BASE_URL for internal communication
     os.environ["API_BASE_URL"] = "http://localhost:8000"

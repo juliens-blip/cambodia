@@ -13,7 +13,7 @@ numReplicas = 1
 # Healthcheck désactivé - Streamlit multipage a des problèmes avec les paths
 # healthcheckPath = "/_stcore/health"
 healthcheckTimeout = 300
-startupDelaySeconds = 30
+startupDelaySeconds = 120
 
 # Redémarrage automatique en cas de crash
 restartPolicyType = "ON_FAILURE"

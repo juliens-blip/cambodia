@@ -82,6 +82,22 @@ async def lifespan(app: FastAPI):
         logger.info("ℹ️ API will start but database features may not work")
         supabase_service = None
 
+    # Pre-load embedding model at startup (takes 30-60s on Railway)
+    # This prevents timeout on first search request
+    if SEMANTIC_AVAILABLE:
+        try:
+            logger.info("🔄 Pre-loading embedding model (this may take 30-60s)...")
+            from app.services.embedding_service import get_embedding_service
+            embedding_service = get_embedding_service()
+            logger.info(f"✅ Embedding model loaded: {embedding_service.dimension} dimensions")
+            app.state.embedding_service = embedding_service
+        except Exception as e:
+            logger.error(f"❌ Failed to load embedding model: {e}")
+            logger.info("ℹ️ Semantic search will not work until model is loaded")
+            app.state.embedding_service = None
+    else:
+        app.state.embedding_service = None
+
     # Store services in app state
     app.state.chromadb = chromadb_service
     app.state.supabase = supabase_service
