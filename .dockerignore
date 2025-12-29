@@ -54,8 +54,7 @@ tests/
 NUL
 =*
 
-# UI Streamlit (pas déployé sur Railway)
-ui/
+# Dashboard séparé (pas le ui/ Streamlit principal)
 dashboard/
 
 # Supabase local
