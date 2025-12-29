@@ -1790,3 +1790,74 @@ for row in rows:
 
 *Session effectuée par Claude Opus 4.5 le 2025-12-29*
 *Commits: 2 | Fixes: 4 | Embeddings corrigés: 146*
+
+---
+
+## SESSION 2025-12-29 (suite): FIX TIMEOUT SEMANTIC SEARCH
+
+**Contexte:** Après les premiers fixes, les erreurs persistaient:
+- `⚠️ Error fetching documents: Server disconnected without sending a response`
+- `⚠️ Error fetching Twitter data: [Errno 111] Connection refused`
+- Log s'arrête à `[SEARCH] Loading services...`
+
+### Root Cause Analysis
+
+**Problème identifié:** Le modèle d'embedding (470MB) était chargé "lazy" lors de la première requête de recherche, causant un timeout sur Railway.
+
+**Séquence du problème:**
+1. Utilisateur accède à Scenario Analysis
+2. Frontend appelle `/api/v1/search`
+3. API tente de charger `intfloat/multilingual-e5-small` depuis HuggingFace
+4. Téléchargement 470MB + chargement modèle = > 60 secondes
+5. Railway/httpx déconnecte le client → "Server disconnected"
+
+### Solution Implémentée
+
+**Stratégie:** Pré-charger le modèle au démarrage de l'API, avant que Streamlit soit prêt.
+
+**Changements:**
+
+1. **`app/main.py` - Pre-load dans lifespan()**
+```python
+if SEMANTIC_AVAILABLE:
+    logger.info("🔄 Pre-loading embedding model (this may take 30-60s)...")
+    embedding_service = get_embedding_service()
+    logger.info(f"✅ Embedding model loaded: {embedding_service.dimension} dimensions")
+    app.state.embedding_service = embedding_service
+```
+
+2. **`start.py` - Timeout augmenté**
+```python
+wait_for_port(8000, timeout=120)  # était 60
+```
+
+3. **`railway.toml` - Délai démarrage augmenté**
+```toml
+startupDelaySeconds = 120  # était 30
+```
+
+### Commit
+
+- `428bfb4` - fix: pre-load embedding model at API startup to prevent timeout
+
+### Logs Attendus après Fix
+
+```
+🚀 Starting Cambodia Agri Analytics API...
+✅ Supabase initialized
+🔄 Pre-loading embedding model (this may take 30-60s)...
+Loading embedding model: intfloat/multilingual-e5-small
+✅ Model loaded successfully: 1024 dimensions
+✅ Embedding model loaded: 1024 dimensions
+✅ API startup complete
+[UI] API is ready!
+```
+
+### Fichier d'analyse APEX
+
+Créé: `tasks/fix-semantic-search-connection/01_analysis.md`
+
+---
+
+*Session effectuée par Claude Opus 4.5 le 2025-12-29*
+*Commit: 428bfb4 | Root cause: Lazy loading du modèle embedding*
