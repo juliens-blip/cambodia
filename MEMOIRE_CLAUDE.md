@@ -1861,3 +1861,119 @@ Créé: `tasks/fix-semantic-search-connection/01_analysis.md`
 
 *Session effectuée par Claude Opus 4.5 le 2025-12-29*
 *Commit: 428bfb4 | Root cause: Lazy loading du modèle embedding*
+
+---
+
+## SESSION 2025-12-30: FIX FINAL - ASYNC EMBEDDING LOADING
+
+**Contexte:** Après le commit 428bfb4, Railway tuait toujours le conteneur avec "Stopping Container".
+
+### Root Cause Identifiée
+
+Le commit 428bfb4 chargeait le modèle de manière **SYNCHRONE** dans `lifespan()`, bloquant le startup de l'API pendant 30-60s. Railway tuait le conteneur car :
+1. Le port ne répondait pas assez rapidement
+2. Le healthcheck timeout était dépassé
+3. Le processus semblait non-responsive
+
+### Solution Finale: Chargement Asynchrone via Thread Daemon
+
+**Changements (Commit c09e138):**
+
+#### 1. app/main.py - Thread daemon pour le modèle
+```python
+import threading
+
+def load_embedding_model():
+    try:
+        logger.info("🔄 Pre-loading embedding model in background...")
+        embedding_service = get_embedding_service()
+        app.state.embedding_service = embedding_service
+    except Exception as e:
+        logger.error(f"❌ Failed to load embedding model: {e}")
+        app.state.embedding_service = None
+
+# Thread daemon = ne bloque pas le shutdown
+embedding_thread = threading.Thread(target=load_embedding_model, daemon=True)
+embedding_thread.start()
+app.state.embedding_thread = embedding_thread
+logger.info("ℹ️ Embedding model loading started in background")
+```
+
+**Avantage:** L'API démarre en ~2 secondes au lieu de 30-60s.
+
+#### 2. start.py - Start Streamlit sans attendre l'API
+```python
+# NE PAS attendre l'API - Railway a besoin de voir un processus actif
+print("[UI] Starting Streamlit immediately (API may still be loading)...")
+
+# SUPPRESSION de wait_for_port(8000, timeout=120)
+```
+
+**Avantage:** Streamlit répond sur le PORT principal en ~5 secondes.
+
+#### 3. app/api/routes/semantic.py - Utilise le service pré-chargé
+```python
+def get_services(app_state=None):
+    # Essayer d'utiliser le service pré-chargé
+    if app_state and hasattr(app_state, 'embedding_service'):
+        if app_state.embedding_service:
+            _embedding = app_state.embedding_service
+        elif hasattr(app_state, 'embedding_thread'):
+            # Attendre la fin du chargement (max 90s)
+            thread.join(timeout=90)
+            _embedding = app_state.embedding_service
+
+    # Fallback: charger synchroniquement si besoin
+    if _embedding is None:
+        _embedding = EmbeddingService()
+```
+
+**Avantage:** Réutilise le modèle pré-chargé, attend si en cours, fallback si échec.
+
+#### 4. railway.toml - Délai plus long
+```toml
+startupDelaySeconds = 300  # 5 minutes au lieu de 120s
+# healthcheckPath désactivé (Streamlit n'a pas /health)
+```
+
+### Architecture de la Solution
+
+```
+[Railway] → [start.py]
+              ├→ API (8000) en background thread
+              │   ├→ lifespan() démarre (2s)
+              │   ├→ Lance thread daemon modèle (30-60s async)
+              │   └→ /health répond OK
+              │
+              └→ Streamlit (PORT 8080) en main thread
+                  └→ Démarre sans attendre (5s)
+
+[Utilisateur] → [/api/v1/search]
+                 └→ get_services() utilise app.state.embedding_service
+```
+
+### Commit
+
+- `c09e138` - fix: load embedding model asynchronously to prevent Railway timeout
+  - 4 fichiers modifiés
+  - Thread daemon pour chargement non-bloquant
+  - Start immédiat de Streamlit
+  - Timeout Railway 300s
+
+### Résultat Attendu
+
+Après redéploiement (~5-7 min):
+- ✅ Railway démarre le conteneur en ~10 secondes
+- ✅ Streamlit accessible immédiatement
+- ✅ Modèle se charge en arrière-plan (30-60s)
+- ✅ Recherche de documents fonctionne après chargement
+- ✅ Pas de "Connection refused" ou "Server disconnected"
+
+### Documentation APEX
+
+Analyse complète: `tasks/fix-semantic-search-connection/01_analysis.md`
+
+---
+
+*Session effectuée par Claude Sonnet 4.5 le 2025-12-30*
+*Commit: c09e138 | Fix: Async embedding loading avec thread daemon*
