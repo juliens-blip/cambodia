@@ -127,126 +127,58 @@ def fetch_twitter_data(commodity: str):
 @st.cache_data(ttl=3600)
 def generate_scenario_analysis(commodity: str, scenario_type: str, market_data: dict, docs_data: dict, twitter_data: dict):
     """
-    Generate scenario analysis using Perplexity API.
+    Generate scenario analysis using the trends API endpoint.
 
     scenario_type: 'pessimistic', 'realistic', or 'optimistic'
     """
     try:
-        # Prepare context
-        price_stats = market_data.get('statistics', {}) if market_data else {}
-        current_price = price_stats.get('current', 0)
-        price_change = price_stats.get('change_pct', 0)
-
-        # Get top documents
-        docs = docs_data.get('results', [])[:3] if docs_data else []
-        doc_summaries = []
-        for doc in docs:
-            doc_summaries.append(f"- {doc.get('content', '')[:200]}...")
-
-        # Get Twitter sentiment
-        twitter_sentiment = twitter_data.get('twitter_sentiment', 'neutral') if twitter_data else 'neutral'
-        overall_trend = twitter_data.get('overall_trend', 'neutral') if twitter_data else 'neutral'
-
-        # Build prompt based on scenario type
-        scenario_prompts = {
-            'pessimistic': f"""As a conservative market analyst, provide a PESSIMISTIC (bearish) analysis for {commodity} market.
-
-Current market data:
-- Current price: ${current_price}/ton
-- Price change ({history_days} days): {price_change:+.2f}%
-- Twitter sentiment: {twitter_sentiment}
-- Overall trend: {overall_trend}
-
-Historical context from documents:
-{chr(10).join(doc_summaries) if doc_summaries else "Limited historical data available"}
-
-Focus on:
-1. **Price Outlook**: Downside risks, potential price declines
-2. **Risk Factors**: Supply gluts, demand weakness, market headwinds
-3. **Bearish Scenarios**: What could go wrong in the next 3-6 months
-
-Be realistic but cautious. Cite specific data points.""",
-
-            'realistic': f"""As a balanced market analyst, provide a REALISTIC (neutral) analysis for {commodity} market.
-
-Current market data:
-- Current price: ${current_price}/ton
-- Price change ({history_days} days): {price_change:+.2f}%
-- Twitter sentiment: {twitter_sentiment}
-- Overall trend: {overall_trend}
-
-Historical context from documents:
-{chr(10).join(doc_summaries) if doc_summaries else "Limited historical data available"}
-
-Focus on:
-1. **Price Outlook**: Most likely price trajectory based on fundamentals
-2. **Balanced View**: Both upside and downside factors
-3. **Probable Scenarios**: What's most likely in the next 3-6 months
-
-Be objective and data-driven. Cite specific evidence.""",
-
-            'optimistic': f"""As an opportunity-focused market analyst, provide an OPTIMISTIC (bullish) analysis for {commodity} market.
-
-Current market data:
-- Current price: ${current_price}/ton
-- Price change ({history_days} days): {price_change:+.2f}%
-- Twitter sentiment: {twitter_sentiment}
-- Overall trend: {overall_trend}
-
-Historical context from documents:
-{chr(10).join(doc_summaries) if doc_summaries else "Limited historical data available"}
-
-Focus on:
-1. **Price Outlook**: Upside potential, bullish catalysts
-2. **Opportunities**: Strong demand drivers, supply constraints, growth factors
-3. **Bullish Scenarios**: What could drive prices higher in the next 3-6 months
-
-Be realistic but optimistic. Cite specific opportunities."""
-        }
-
-        prompt = scenario_prompts.get(scenario_type, scenario_prompts['realistic'])
-
-        # Call Perplexity API via RAG endpoint
+        # Call the new scenario endpoint in trends API
         with httpx.Client() as client:
-            url = f"{BASE_URL}/rag/query"
-            payload = {
-                "query": prompt,
-                "commodity": commodity,
-                "top_k": 5,
-                "use_cache": True
-            }
-            # RAG query can take 30-60 seconds (Perplexity AI call + search)
-            response = client.post(url, json=payload, timeout=120.0)
+            url = f"{BASE_URL}/trends/scenario/{commodity}"
+            params = {"scenario_type": scenario_type}
+            
+            # Prepare optional data
+            json_data = {}
+            if market_data:
+                json_data["price_data"] = market_data
+            if twitter_data:
+                json_data["twitter_data"] = twitter_data
+            
+            # Call the API (can take 30-60 seconds for Perplexity)
+            response = client.post(url, params=params, json=json_data if json_data else None, timeout=120.0)
 
             if response.status_code == 200:
                 result = response.json()
                 return {
-                    'analysis': result.get('answer', 'Analysis not available'),
+                    'analysis': result.get('analysis', 'Analysis not available'),
                     'citations': result.get('citations', []),
                     'cost': 0  # Cost is tracked by the API internally
                 }
             elif response.status_code == 429:
-                st.warning(f"⏱️ Rate limit exceeded. Please wait a moment and try again.")
                 return {
-                    'analysis': f"Rate limit exceeded. Please refresh the page in a few minutes.",
+                    'analysis': "Rate limit exceeded. Please refresh the page in a few minutes.",
                     'citations': [],
                     'cost': 0
                 }
+            else:
+                return {
+                    'analysis': f"API error: {response.status_code}. Please try again.",
+                    'citations': [],
+                    'cost': 0
+                }
+                
     except httpx.TimeoutException:
-        st.warning(f"⏱️ Analysis generation timed out. This can happen on first use. Try refreshing.")
         return {
-            'analysis': f"Request timed out. The AI analysis is taking longer than expected. Please try again.",
+            'analysis': "Request timed out. The AI analysis is taking longer than expected. Please try again.",
             'citations': [],
             'cost': 0
         }
     except Exception as e:
-        st.warning(f"⚠️ Error generating analysis: {str(e)}")
-
-    return {
-        'analysis': f"Unable to generate {scenario_type} analysis. Please try again.",
-        'citations': [],
-        'cost': 0
-    }
+        return {
+            'analysis': f"Unable to generate {scenario_type} analysis: {str(e)}",
+            'citations': [],
+            'cost': 0
+        }
 
 
 def display_data_sources(market_data, docs_data, twitter_data):

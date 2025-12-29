@@ -269,3 +269,113 @@ async def get_public_prices(
     except Exception as e:
         logger.error(f"Error getting public prices: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/scenario/{commodity}")
+async def generate_scenario_analysis(
+    commodity: str,
+    scenario_type: str = Query(default="realistic", regex="^(pessimistic|realistic|optimistic)$"),
+    price_data: Optional[dict] = None,
+    twitter_data: Optional[dict] = None
+):
+    """
+    Generate AI scenario analysis for a commodity.
+    
+    - **commodity**: 'cashew' or 'rubber'
+    - **scenario_type**: 'pessimistic', 'realistic', or 'optimistic'
+    - **price_data**: Optional current price data (from /public/prices)
+    - **twitter_data**: Optional Twitter sentiment data (from /latest)
+    
+    Uses Perplexity AI to generate market scenario analysis.
+    Cost: ~$0.005 per analysis.
+    """
+    try:
+        _, perplexity, _, public_prices = get_services()
+        
+        # Get price data if not provided
+        if not price_data:
+            try:
+                history = public_prices.get_price_history(commodity, 30)
+                stats = public_prices.get_price_statistics(commodity, 30)
+                price_data = {"statistics": stats, "data": history}
+            except Exception:
+                price_data = {"statistics": {"current": 0, "change_pct": 0}}
+        
+        # Extract key metrics
+        current_price = price_data.get("statistics", {}).get("current", 0)
+        price_change = price_data.get("statistics", {}).get("change_pct", 0)
+        
+        # Get Twitter sentiment if available
+        twitter_sentiment = "neutral"
+        overall_trend = "neutral"
+        if twitter_data:
+            twitter_sentiment = twitter_data.get("twitter_sentiment", "neutral")
+            overall_trend = twitter_data.get("overall_trend", "neutral")
+        
+        # Build prompt based on scenario type
+        scenario_prompts = {
+            'pessimistic': f"""As a conservative market analyst, provide a PESSIMISTIC (bearish) analysis for {commodity} market.
+
+Current market data:
+- Current price: ${current_price}/ton
+- Price change (30 days): {price_change:+.2f}%
+- Twitter sentiment: {twitter_sentiment}
+- Overall trend: {overall_trend}
+
+Focus on:
+1. **Price Outlook**: Downside risks, potential price declines
+2. **Risk Factors**: Supply gluts, demand weakness, market headwinds
+3. **Bearish Scenarios**: What could go wrong in the next 3-6 months
+
+Be realistic but cautious. Keep response under 300 words.""",
+
+            'realistic': f"""As a balanced market analyst, provide a REALISTIC (neutral) analysis for {commodity} market.
+
+Current market data:
+- Current price: ${current_price}/ton
+- Price change (30 days): {price_change:+.2f}%
+- Twitter sentiment: {twitter_sentiment}
+- Overall trend: {overall_trend}
+
+Focus on:
+1. **Price Outlook**: Most likely price trajectory based on fundamentals
+2. **Balanced View**: Both upside and downside factors
+3. **Probable Scenarios**: What's most likely in the next 3-6 months
+
+Be objective and data-driven. Keep response under 300 words.""",
+
+            'optimistic': f"""As an opportunity-focused market analyst, provide an OPTIMISTIC (bullish) analysis for {commodity} market.
+
+Current market data:
+- Current price: ${current_price}/ton
+- Price change (30 days): {price_change:+.2f}%
+- Twitter sentiment: {twitter_sentiment}
+- Overall trend: {overall_trend}
+
+Focus on:
+1. **Price Outlook**: Upside potential, bullish catalysts
+2. **Opportunities**: Strong demand drivers, supply constraints, growth factors
+3. **Bullish Scenarios**: What could drive prices higher in the next 3-6 months
+
+Be realistic but optimistic. Keep response under 300 words."""
+        }
+        
+        prompt = scenario_prompts.get(scenario_type, scenario_prompts['realistic'])
+        
+        # Call Perplexity directly
+        result = await perplexity.query(prompt)
+        
+        return {
+            "commodity": commodity,
+            "scenario_type": scenario_type,
+            "analysis": result.get("answer", "Analysis not available"),
+            "citations": result.get("citations", []),
+            "price_context": {
+                "current_price": current_price,
+                "price_change_pct": price_change
+            }
+        }
+        
+    except Exception as e:
+        logger.error(f"Error generating scenario analysis: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
