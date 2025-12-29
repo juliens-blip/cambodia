@@ -1,0 +1,53 @@
+# MINIMAL REQUIREMENTS FOR RAILWAY DEPLOYMENT
+# Core API only - No semantic search, no ML features
+
+# ===== WEB FRAMEWORK =====
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+pydantic==2.5.3
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+
+# ===== DATABASE =====
+supabase==2.3.0
+httpx==0.26.0
+
+# ===== DATA PROCESSING (LIGHTWEIGHT) =====
+pandas==2.1.0
+numpy==1.26.0
+
+# ===== SCHEDULER =====
+apscheduler==3.10.4
+pytz==2024.1
+
+# ===== WEB SCRAPING =====
+beautifulsoup4==4.12.0
+requests==2.31.0
+lxml==4.9.3
+
+# ===== GOOGLE APIS =====
+google-api-python-client==2.108.0
+google-auth-httplib2==0.1.1
+google-auth-oauthlib==1.1.0
+
+# ===== UTILITIES =====
+xmltodict==0.13.0
+
+# NOTE: Heavy dependencies EXCLUDED (for faster deployment):
+# - chromadb (~150 MB)
+# - sentence-transformers (~1 GB + torch ~2 GB)
+# - pytesseract/pdf2image (requires system packages)
+# - streamlit (~80 MB)
+#
+# This minimal version supports:
+# ✅ /api/prices
+# ✅ /api/production
+# ✅ /api/reports
+# ✅ /api/search
+# ✅ Basic data collection
+#
+# NOT supported:
+# ❌ Semantic search (/semantic)
+# ❌ PDF OCR processing
+# ❌ ChromaDB vector storage
+# ❌ Streamlit dashboard
