@@ -1690,3 +1690,103 @@ Streamlit Cache:
 
 *Debug complet effectué par Antigravity (Google DeepMind) le 2025-12-28 de 23:59 à 01:07 CET*
 *Durée totale: 1h08 | Fichiers modifiés: 5 | Lignes de code: ~150*
+
+---
+
+## SESSION 2025-12-29: FIX RAILWAY DEPLOYMENT & SEMANTIC SEARCH
+
+**Contexte:** Erreurs sur la page Scenario Analysis:
+- `⚠️ Error fetching documents: Server disconnected without sending a response`
+- `⚠️ Error fetching Twitter data: [Errno 111] Connection refused`
+- `GET /Scenario_Analysis/_stcore/health 404`
+
+### Problème 1: Healthcheck Railway 404 ✅
+
+**Cause:** Streamlit multipage ajoute le chemin de la page comme préfixe (`/Scenario_Analysis/`) mais Railway cherchait `/_stcore/health` sous ce chemin incorrect.
+
+**Solution:**
+- Désactivé le healthcheck path dans `railway.toml`
+- Ajouté `startupDelaySeconds = 30` pour laisser le temps à l'app de démarrer
+
+### Problème 2: API FastAPI instable ✅
+
+**Cause:** Le script `start.py` attendait seulement 3 secondes avant de lancer Streamlit, pas assez pour le chargement du modèle d'embedding.
+
+**Solution:**
+- Ajout fonction `wait_for_port()` pour attendre jusqu'à 60s que l'API soit prête
+- Ajout `flush=True` aux prints pour visibilité dans les logs Railway
+- Meilleure gestion des erreurs avec `check=True`
+
+### Problème 3: Embeddings stockés comme chaînes ✅ CRITIQUE
+
+**Découverte:** Les 146 embeddings dans `document_embeddings` étaient stockés comme des chaînes JSON au lieu de vrais vecteurs pgvector.
+
+**Diagnostic:**
+```python
+# Type retourné: str (devrait être list)
+# Longueur: 12732 chars (c'est la représentation JSON texte)
+# Contenu: "[-0.004114891,-0.005351239,...]"
+```
+
+**Solution appliquée:**
+```python
+# Script de correction exécuté:
+for row in rows:
+    emb_list = json.loads(row['embedding'])  # Parse JSON string
+    client.table('document_embeddings').update({
+        'embedding': emb_list  # Now properly stored as vector
+    }).eq('id', row_id).execute()
+# Résultat: 146 fixed, 0 errors
+```
+
+### Problème 4: Amélioration du debugging ✅
+
+**Ajouts:**
+- Endpoint `/debug/embedding` pour tester le chargement du modèle
+- Logs détaillés `[SEARCH]` dans semantic.py pour tracer les étapes
+- Traceback complet en cas d'erreur de recherche
+
+### Commits effectués
+
+1. `cbff719` - fix: improve Railway startup and disable problematic healthcheck
+2. `2337cc9` - fix: add debug endpoint and improve search logging
+
+### Fichiers modifiés
+
+| Fichier | Changement |
+|---------|------------|
+| `railway.toml` | Désactivé healthcheckPath, ajouté startupDelaySeconds |
+| `start.py` | Ajouté wait_for_port(), meilleurs logs |
+| `app/main.py` | Ajouté /debug/embedding endpoint |
+| `app/api/routes/semantic.py` | Logs détaillés [SEARCH] |
+
+### Tables Supabase
+
+| Table | Lignes | Status |
+|-------|--------|--------|
+| `document_embeddings` | 146 | ✅ Corrigé (vecteurs au lieu de strings) |
+| `context_documents` | ? | À vérifier |
+| `market_trends` | ? | Fonctionnel (tweets OK) |
+
+### Tests à effectuer
+
+1. **Après redéploiement Railway:**
+   - Accéder à `/debug/embedding` pour vérifier le modèle
+   - Tester la recherche sémantique dans Scenario Analysis
+   - Vérifier les logs Railway pour `[SEARCH]` et `[API]`
+
+2. **Si toujours 0 documents:**
+   - Vérifier que `SEMANTIC_AVAILABLE = True` dans les logs
+   - Tester directement l'API: `POST /api/v1/search` avec `{"query": "cashew", "top_k": 5}`
+
+### Leçons apprises
+
+1. **Les embeddings doivent être insérés comme listes, pas comme chaînes JSON**
+2. **Railway healthcheck ne fonctionne pas bien avec Streamlit multipage**
+3. **Toujours attendre que le service backend soit prêt avant de lancer le frontend**
+4. **Ajouter des endpoints de diagnostic pour le debugging en production**
+
+---
+
+*Session effectuée par Claude Opus 4.5 le 2025-12-29*
+*Commits: 2 | Fixes: 4 | Embeddings corrigés: 146*
