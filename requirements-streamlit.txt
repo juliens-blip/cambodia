@@ -1,0 +1,31 @@
+# Requirements for Streamlit UI deployment on Railway
+# Lighter than full requirements.txt for faster deployment
+
+# Streamlit
+streamlit>=1.28.0
+
+# Database
+supabase>=2.0.0
+
+# Data Processing
+pandas>=2.1.0
+numpy>=1.24.0
+
+# Charts
+plotly>=5.18.0
+
+# HTTP Client (for API calls)
+httpx>=0.25.0
+requests>=2.31.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pydantic-settings>=2.1.0
+
+# Scheduler (for background tasks)
+apscheduler>=3.10.0
+pytz>=2024.1
+
+# XML parsing
+xmltodict>=0.13.0

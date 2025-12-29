@@ -1,19 +1,17 @@
-# railway.toml - Configuration Railway
+# railway.toml - Configuration Railway pour Streamlit
 # Utilise Docker pour éviter les problèmes de nixpacks/mise
 
 [build]
-# Utiliser le Dockerfile au lieu de nixpacks
+# Utiliser le Dockerfile
 builder = "dockerfile"
 dockerfilePath = "Dockerfile"
 
 [deploy]
 # Nombre de replicas
 numReplicas = 1
-# NE PAS utiliser startCommand - laisser le Dockerfile CMD gérer ça
-# Le Dockerfile utilise start.sh qui interprète correctement $PORT
 
-# Healthcheck
-healthcheckPath = "/health"
+# Healthcheck pour Streamlit (utilise /_stcore/health)
+healthcheckPath = "/_stcore/health"
 healthcheckTimeout = 300
 
 # Redémarrage automatique en cas de crash
