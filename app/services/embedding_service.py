@@ -28,25 +28,37 @@ class EmbeddingService:
     Cost: $0 (local CPU/GPU inference)
     """
 
-    def __init__(self, model_name: str = "intfloat/multilingual-e5-large"):
+    def __init__(self, model_name: str = None):
         """
         Initialize embedding model.
 
         Args:
             model_name: Hugging Face model identifier
-                       Default: intfloat/multilingual-e5-large (1024 dim)
+                       Default: Uses EMBEDDING_MODEL env var or "all-MiniLM-L6-v2" (lightweight)
+                       
+        Available models:
+            - all-MiniLM-L6-v2: 80MB, 384 dim, fast, good quality (default for Railway)
+            - intfloat/multilingual-e5-large: 2.2GB, 1024 dim, best multilingual (local dev)
 
         Note:
-            First run will download ~2.2 GB model to cache.
-            Subsequent runs use cached model.
+            First run will download model to cache.
         """
+        import os
+        
+        # Use env var or default to lightweight model for Railway
+        if model_name is None:
+            model_name = os.environ.get("EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+        
         logger.info(f"Loading embedding model: {model_name}")
 
         try:
             self.model = SentenceTransformer(model_name)
             self.dimension = self.model.get_sentence_embedding_dimension()
 
-            logger.info(f"✅ Model loaded successfully: {self.dimension} dimensions")
+            # Check if model requires E5 prefix
+            self.use_prefix = "e5" in model_name.lower()
+            
+            logger.info(f"✅ Model loaded successfully: {self.dimension} dimensions (prefix: {self.use_prefix})")
         except Exception as e:
             logger.error(f"❌ Error loading model: {e}")
             raise
@@ -73,10 +85,11 @@ class EmbeddingService:
             1024
         """
         # E5 models require "passage: " prefix for passages
-        prefixed_text = f"passage: {text}"
+        if self.use_prefix:
+            text = f"passage: {text}"
 
         try:
-            embedding = self.model.encode(prefixed_text, convert_to_numpy=True)
+            embedding = self.model.encode(text, convert_to_numpy=True)
             return embedding.tolist()
         except Exception as e:
             logger.error(f"Error embedding text: {e}")
@@ -108,10 +121,11 @@ class EmbeddingService:
             This is how E5 models achieve best cross-lingual performance.
         """
         # E5 models require "query: " prefix for queries
-        prefixed_query = f"query: {query}"
+        if self.use_prefix:
+            query = f"query: {query}"
 
         try:
-            embedding = self.model.encode(prefixed_query, convert_to_numpy=True)
+            embedding = self.model.encode(query, convert_to_numpy=True)
             return embedding.tolist()
         except Exception as e:
             logger.error(f"Error embedding query: {e}")
@@ -153,11 +167,12 @@ class EmbeddingService:
             ~500-1000 texts/second on GPU
         """
         # E5 models: prefix all passages with "passage: "
-        prefixed_texts = [f"passage: {text}" for text in texts]
+        if self.use_prefix:
+            texts = [f"passage: {text}" for text in texts]
 
         try:
             embeddings = self.model.encode(
-                prefixed_texts,
+                texts,
                 batch_size=batch_size,
                 show_progress_bar=show_progress,
                 convert_to_numpy=True
