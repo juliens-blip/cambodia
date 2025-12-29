@@ -147,7 +147,11 @@ async def root():
         "message": "Cambodia Agri Analytics API",
         "version": "0.1.0",
         "docs": "/docs",
-        "status": "running"
+        "status": "running",
+        "features": {
+            "semantic_search": SEMANTIC_AVAILABLE,
+            "market_trends": TRENDS_AVAILABLE
+        }
     }
 
 
