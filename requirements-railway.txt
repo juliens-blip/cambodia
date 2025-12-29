@@ -1,4 +1,4 @@
-# Minimal requirements for Railway deployment
+# Requirements for Railway deployment (full features)
 # Core FastAPI
 fastapi>=0.109.0
 uvicorn[standard]>=0.27.0
@@ -17,12 +17,13 @@ pytz>=2024.1
 
 # Data Processing
 xmltodict>=0.13.0
+numpy>=1.24.0
 
-# Note: Heavy dependencies excluded for faster deployment:
-# - chromadb (150 MB)
-# - streamlit (80 MB)
-# - plotly (50 MB)
-# - tesseract/pdf processing (will add if needed)
-# - pytest (not needed in production)
-#
-# To enable full features, use: pip install -r requirements.txt
+# Semantic Search (for local document analysis)
+sentence-transformers>=2.2.0
+torch>=2.0.0
+
+# Note: This adds ~500MB to the container but enables:
+# - Semantic search in local PDFs
+# - Document-based RAG analysis
+# - Multilingual embeddings (Khmer, English, Vietnamese)
