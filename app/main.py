@@ -18,13 +18,23 @@ from app.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
 
 # Optional routes (require heavy dependencies like sentence-transformers)
 SEMANTIC_AVAILABLE = False
+TRENDS_AVAILABLE = False
+
+# Try to import semantic routes (requires sentence-transformers)
 try:
-    from app.api.routes import semantic, trends
+    from app.api.routes import semantic
     SEMANTIC_AVAILABLE = True
 except ImportError as e:
-    logger.warning(f"⚠️ Semantic/Trends routes not available: {e}")
+    logger.warning(f"⚠️ Semantic routes not available: {e}")
     logger.info("ℹ️ The API will work without semantic search features")
     semantic = None
+
+# Try to import trends routes (doesn't require sentence-transformers)
+try:
+    from app.api.routes import trends
+    TRENDS_AVAILABLE = True
+except ImportError as e:
+    logger.warning(f"⚠️ Trends routes not available: {e}")
     trends = None
 
 
@@ -119,10 +129,15 @@ app.include_router(quality.router, prefix="/api", tags=["Data Quality"])
 # Optional routers (only if dependencies available)
 if SEMANTIC_AVAILABLE:
     app.include_router(semantic.router, tags=["Semantic Search & RAG"])
-    app.include_router(trends.router, tags=["Market Trends"])
-    logger.info("✅ Semantic/Trends routes enabled")
+    logger.info("✅ Semantic routes enabled")
 else:
-    logger.info("ℹ️ Semantic/Trends routes disabled (missing dependencies)")
+    logger.info("ℹ️ Semantic routes disabled (missing dependencies)")
+
+if TRENDS_AVAILABLE:
+    app.include_router(trends.router, tags=["Market Trends"])
+    logger.info("✅ Trends routes enabled")
+else:
+    logger.info("ℹ️ Trends routes disabled (missing dependencies)")
 
 
 @app.get("/")
