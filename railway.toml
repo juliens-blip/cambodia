@@ -1,0 +1,19 @@
+# railway.toml - Configuration Railway
+# Utilise Docker pour éviter les problèmes de nixpacks/mise
+
+[build]
+# Utiliser le Dockerfile au lieu de nixpacks
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+# Nombre de replicas
+numReplicas = 1
+# Port dynamique (Railway définit $PORT)
+startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+# Healthcheck
+healthcheckPath = "/health"
+healthcheckTimeout = 100
+# Redémarrage automatique en cas de crash
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

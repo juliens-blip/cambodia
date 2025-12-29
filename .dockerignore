@@ -1,0 +1,62 @@
+# Fichiers à ignorer pour Docker
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.env
+.env.*
+.venv/
+.venv311/
+venv/
+ENV/
+
+# Git
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Données locales
+*.log
+logs/
+chroma_data/
+tessdata/
+*.sqlite3
+*.db
+
+# Documentation et fichiers de dev
+*.md
+docs/
+.claude/
+.claude copy/
+.claude copy 2/
+.claude copy 3/
+agents/
+agents copy/
+agents copy 2/
+agents copy 3/
+tasks/
+reports/
+examples/
+tests/
+
+# Scripts Windows
+*.bat
+*.ps1
+
+# Fichiers temporaires
+NUL
+=*
+
+# UI Streamlit (pas déployé sur Railway)
+ui/
+dashboard/
+
+# Supabase local
+supabase/
