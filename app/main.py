@@ -158,11 +158,41 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint - simplified for Railway.
-    
+
     Returns 200 OK if the app is running, regardless of database status.
     This ensures Railway healthcheck passes during startup.
     """
     return {"status": "ok"}
+
+
+@app.get("/debug/embedding")
+async def debug_embedding():
+    """Debug endpoint to test embedding model loading."""
+    result = {
+        "semantic_available": SEMANTIC_AVAILABLE,
+        "embedding_status": "not_tested",
+        "embedding_dimension": None,
+        "model_name": None,
+        "error": None
+    }
+
+    if not SEMANTIC_AVAILABLE:
+        result["error"] = "Semantic routes not available (missing sentence-transformers)"
+        return result
+
+    try:
+        from app.services.embedding_service import get_embedding_service
+        service = get_embedding_service()
+        info = service.get_model_info()
+        result["embedding_status"] = "ok"
+        result["embedding_dimension"] = info.get("dimension")
+        result["model_name"] = info.get("model_name")
+    except Exception as e:
+        result["embedding_status"] = "error"
+        result["error"] = str(e)
+        logger.error(f"Embedding debug error: {e}")
+
+    return result
 
 
 @app.get("/health/detailed")

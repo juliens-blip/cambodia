@@ -73,9 +73,15 @@ async def semantic_search(request: SearchRequest):
     start_time = time.time()
 
     try:
+        logger.info(f"[SEARCH] Starting search for: '{request.query[:50]}...'")
+
+        # Get services (this loads the embedding model if not already loaded)
+        logger.info("[SEARCH] Loading services...")
         _, _, search, _, _, _ = get_services()
+        logger.info("[SEARCH] Services loaded successfully")
 
         # Perform search
+        logger.info(f"[SEARCH] Performing search with top_k={request.top_k}, threshold={request.similarity_threshold}")
         results = await search.search(
             query=request.query,
             top_k=request.top_k,
@@ -99,7 +105,7 @@ async def semantic_search(request: SearchRequest):
 
         execution_time = (time.time() - start_time) * 1000
 
-        logger.info(f"Search query '{request.query[:50]}...' returned {len(search_results)} results in {execution_time:.0f}ms")
+        logger.info(f"[SEARCH] Query '{request.query[:50]}...' returned {len(search_results)} results in {execution_time:.0f}ms")
 
         return SearchResponse(
             query=request.query,
@@ -109,7 +115,9 @@ async def semantic_search(request: SearchRequest):
         )
 
     except Exception as e:
-        logger.error(f"Search error: {e}")
+        import traceback
+        logger.error(f"[SEARCH] Error: {e}")
+        logger.error(f"[SEARCH] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

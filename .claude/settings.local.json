@@ -1,4 +1,15 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__supabase__get_logs",
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: improve Railway startup and disable problematic healthcheck\n\n- Disable healthcheck path that fails with Streamlit multipage routing\n- Add startupDelaySeconds for proper initialization time\n- Improve start.py with proper port checking before launching Streamlit\n- Add better logging with flush=True for Railway log visibility\n- Wait up to 60s for API to be ready \\(model loading can take time\\)\n\n🤖 Generated with [Claude Code]\\(https://claude.com/claude-code\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "mcp__supabase__execute_sql",
+      "WebFetch(domain:cambodia.up.railway.app)",
+      "Bash(python:*)"
+    ]
+  },
   "statusLine": {
     "type": "command",
     "command": "python .claude/scripts/context-monitor.py"
