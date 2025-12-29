@@ -10,9 +10,10 @@ dockerfilePath = "Dockerfile"
 # Nombre de replicas
 numReplicas = 1
 
-# Healthcheck pour Streamlit (utilise /_stcore/health)
-healthcheckPath = "/_stcore/health"
+# Healthcheck désactivé - Streamlit multipage a des problèmes avec les paths
+# healthcheckPath = "/_stcore/health"
 healthcheckTimeout = 300
+startupDelaySeconds = 30
 
 # Redémarrage automatique en cas de crash
 restartPolicyType = "ON_FAILURE"
