@@ -38,74 +38,110 @@ def chunk_text(text: str, chunk_size: int = 500, overlap: int = 50) -> list[str]
 
 
 async def index_documents_task():
-    """Background task pour indexer les documents."""
-    logger.info("🚀 Starting documents indexation (background task)...")
+    """Background task pour indexer les documents - OPTIMISÉ pour Railway."""
+    import gc
+    import sys
+
+    def log_progress(msg: str):
+        """Log avec flush immédiat pour Railway."""
+        logger.info(msg)
+        print(msg, flush=True)
+
+    log_progress("🚀 Starting documents indexation (background task)...")
 
     try:
         # Initialize services
         supabase = SupabaseService(settings.supabase_url, settings.supabase_key)
         embedding_service = get_embedding_service()  # Singleton - no duplicate model load
 
-        logger.info(f"Embedding model dimension: {embedding_service.dimension}")
+        log_progress(f"✅ Embedding model ready: {embedding_service.dimension}D")
 
         # Fetch documents
         result = supabase.client.table("context_documents").select("*").execute()
         documents = result.data
 
-        logger.info(f"Found {len(documents)} documents to index")
+        log_progress(f"📚 Found {len(documents)} documents to index")
 
         if not documents:
-            logger.warning("No documents found")
+            log_progress("⚠️ No documents found")
             return
 
-        # Index each document
+        # Process documents in batches to manage memory
         total_chunks = 0
-        for i, doc in enumerate(documents, 1):
-            doc_id = doc.get('id')
-            title = doc.get('title', 'Unknown')
-            text = doc.get('text_content', '')
-            commodity = doc.get('commodity', 'unknown')
-            source = doc.get('source', 'unknown')
-            url = doc.get('url')
+        batch_size = 5  # Process 5 documents at a time
 
-            if not text or len(text) < 50:
-                logger.warning(f"Skipping {title}: text too short")
-                continue
+        for batch_start in range(0, len(documents), batch_size):
+            batch_end = min(batch_start + batch_size, len(documents))
+            batch_docs = documents[batch_start:batch_end]
 
-            # Chunk text
-            chunks = chunk_text(text, chunk_size=500, overlap=50)
-            logger.info(f"[{i}/{len(documents)}] {title[:50]}... → {len(chunks)} chunks")
+            log_progress(f"📦 Processing batch {batch_start//batch_size + 1}: docs {batch_start+1}-{batch_end}")
 
-            # Generate embeddings
-            embeddings = []
-            for chunk in chunks:
-                emb = embedding_service.embed_text(chunk)  # embed_text for documents
-                embeddings.append(emb)
+            # Collect all chunks for this batch
+            all_chunks_data = []
 
-            # Store in database
-            for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
-                chunk_data = {
-                    'id': str(uuid4()),
-                    'document_id': doc_id,
-                    'chunk_index': idx,
-                    'chunk_text': chunk,
-                    'embedding': embedding,
-                    'metadata': {
-                        'source': source,
-                        'commodity': commodity,
-                        'title': title,
-                        'url': url,
-                        'chunk_count': len(chunks)
-                    }
-                }
+            for i, doc in enumerate(batch_docs, batch_start + 1):
+                doc_id = doc.get('id')
+                title = doc.get('title', 'Unknown')
+                text = doc.get('text_content', '')
+                commodity = doc.get('commodity', 'unknown')
+                source = doc.get('source', 'unknown')
+                url = doc.get('url')
 
-                supabase.client.table("document_embeddings").insert(chunk_data).execute()
+                if not text or len(text) < 50:
+                    log_progress(f"  ⏭️ [{i}/{len(documents)}] Skipping {title[:30]}: too short")
+                    continue
 
-            total_chunks += len(chunks)
+                # Chunk text
+                chunks = chunk_text(text, chunk_size=500, overlap=50)
+                log_progress(f"  📄 [{i}/{len(documents)}] {title[:40]}... → {len(chunks)} chunks")
 
-        logger.info(f"✅ Indexation complete: {len(documents)} docs, {total_chunks} chunks")
+                # Generate embeddings using BATCH method (more efficient)
+                try:
+                    embeddings = embedding_service.embed_batch(chunks, batch_size=16, show_progress=False)
+                except Exception as emb_error:
+                    log_progress(f"  ❌ Embedding error for {title[:30]}: {emb_error}")
+                    continue
+
+                # Prepare data for batch insert
+                for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
+                    all_chunks_data.append({
+                        'id': str(uuid4()),
+                        'document_id': doc_id,
+                        'chunk_index': idx,
+                        'chunk_text': chunk,
+                        'embedding': embedding,
+                        'metadata': {
+                            'source': source,
+                            'commodity': commodity,
+                            'title': title,
+                            'url': url,
+                            'chunk_count': len(chunks)
+                        }
+                    })
+
+            # Batch insert all chunks from this batch of documents
+            if all_chunks_data:
+                try:
+                    # Insert in smaller batches to avoid timeout
+                    insert_batch_size = 20
+                    for insert_start in range(0, len(all_chunks_data), insert_batch_size):
+                        insert_batch = all_chunks_data[insert_start:insert_start + insert_batch_size]
+                        supabase.client.table("document_embeddings").insert(insert_batch).execute()
+
+                    total_chunks += len(all_chunks_data)
+                    log_progress(f"  ✅ Inserted {len(all_chunks_data)} chunks (total: {total_chunks})")
+                except Exception as db_error:
+                    log_progress(f"  ❌ DB insert error: {db_error}")
+
+            # Force garbage collection after each batch to free memory
+            del all_chunks_data
+            gc.collect()
+            log_progress(f"  🧹 Memory cleaned")
+
+        log_progress(f"🎉 Indexation complete: {len(documents)} docs, {total_chunks} chunks")
 
     except Exception as e:
+        log_progress(f"❌ Indexation failed: {e}")
         logger.error(f"❌ Indexation failed: {e}", exc_info=True)
         raise
 
