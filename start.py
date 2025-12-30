@@ -2,7 +2,7 @@
 """
 Combined startup script for Railway.
 Runs both FastAPI and Streamlit in the same container.
-Version: 2.0 - Fixed connection issues
+Version: 3.0 - Robust process management with auto-restart
 """
 import os
 import subprocess
@@ -12,10 +12,63 @@ import time
 import socket
 import urllib.request
 import urllib.error
+import signal
+import atexit
 
 print("=" * 60, flush=True)
-print("START.PY LOADED - Version 2.0", flush=True)
+print("START.PY LOADED - Version 3.0", flush=True)
 print("=" * 60, flush=True)
+
+# Global state for process management
+api_process = None
+api_lock = threading.Lock()
+shutdown_event = threading.Event()
+API_PORT = 8000
+MAX_RESTART_ATTEMPTS = 5
+RESTART_DELAY = 3  # seconds between restart attempts
+HEALTH_CHECK_INTERVAL = 30  # seconds between health checks
+
+
+def cleanup():
+    """Cleanup function called on exit."""
+    global api_process
+    print("[CLEANUP] Shutting down...", flush=True)
+    shutdown_event.set()
+    with api_lock:
+        if api_process and api_process.poll() is None:
+            print("[CLEANUP] Terminating API process...", flush=True)
+            api_process.terminate()
+            try:
+                api_process.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                print("[CLEANUP] Force killing API process...", flush=True)
+                api_process.kill()
+    print("[CLEANUP] Done", flush=True)
+
+
+def signal_handler(signum, frame):
+    """Handle termination signals gracefully."""
+    print(f"[SIGNAL] Received signal {signum}", flush=True)
+    cleanup()
+    sys.exit(0)
+
+
+# Register cleanup handlers
+atexit.register(cleanup)
+signal.signal(signal.SIGTERM, signal_handler)
+signal.signal(signal.SIGINT, signal_handler)
+
+
+def is_port_open(port: int) -> bool:
+    """Check if a port is open (non-blocking)."""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex(('127.0.0.1', port))
+        sock.close()
+        return result == 0
+    except Exception:
+        return False
 
 
 def wait_for_port(port: int, timeout: int = 60) -> bool:
@@ -23,71 +76,160 @@ def wait_for_port(port: int, timeout: int = 60) -> bool:
     print(f"[WAIT] Checking port {port}...", flush=True)
     start = time.time()
     while time.time() - start < timeout:
-        try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(1)
-            result = sock.connect_ex(('127.0.0.1', port))
-            sock.close()
-            if result == 0:
-                print(f"[WAIT] Port {port} is open!", flush=True)
-                return True
-            else:
-                elapsed = int(time.time() - start)
-                if elapsed % 10 == 0:
-                    print(f"[WAIT] Still waiting for port {port}... ({elapsed}s)", flush=True)
-        except Exception as e:
-            print(f"[WAIT] Socket error: {e}", flush=True)
+        if shutdown_event.is_set():
+            return False
+        if is_port_open(port):
+            print(f"[WAIT] Port {port} is open!", flush=True)
+            return True
+        elapsed = int(time.time() - start)
+        if elapsed % 10 == 0 and elapsed > 0:
+            print(f"[WAIT] Still waiting for port {port}... ({elapsed}s)", flush=True)
         time.sleep(1)
     print(f"[WAIT] Timeout waiting for port {port}", flush=True)
     return False
 
 
-def test_api_health(port: int = 8000) -> bool:
+def test_api_health(port: int = 8000, quiet: bool = False) -> bool:
     """Test if API health endpoint responds."""
     try:
         url = f"http://127.0.0.1:{port}/health"
         req = urllib.request.Request(url)
         with urllib.request.urlopen(req, timeout=5) as response:
             data = response.read().decode('utf-8')
-            print(f"[TEST] API health OK: {data}", flush=True)
+            if not quiet:
+                print(f"[HEALTH] API OK: {data}", flush=True)
             return True
     except urllib.error.URLError as e:
-        print(f"[TEST] API health failed: {e}", flush=True)
+        if not quiet:
+            print(f"[HEALTH] API failed: {e}", flush=True)
         return False
     except Exception as e:
-        print(f"[TEST] API health error: {e}", flush=True)
+        if not quiet:
+            print(f"[HEALTH] API error: {e}", flush=True)
         return False
 
 
-def run_api():
-    """Run FastAPI in background."""
-    port = "8000"  # Internal API port
-    print(f"[API] Starting FastAPI on port {port}...", flush=True)
+def start_api_process():
+    """Start the API subprocess and return the process object."""
+    print(f"[API] Starting FastAPI on port {API_PORT}...", flush=True)
     print(f"[API] Python: {sys.executable}", flush=True)
     print(f"[API] Working dir: {os.getcwd()}", flush=True)
+
+    process = subprocess.Popen(
+        [sys.executable, "-m", "uvicorn",
+         "app.main:app",
+         "--host", "0.0.0.0",
+         "--port", str(API_PORT)],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1
+    )
+    return process
+
+
+def stream_api_output(process):
+    """Stream API output in a separate thread."""
     try:
-        # Use Popen to run uvicorn and capture output
-        process = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn",
-             "app.main:app",
-             "--host", "0.0.0.0",
-             "--port", port],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1
-        )
-        # Stream output
         for line in process.stdout:
+            if shutdown_event.is_set():
+                break
             print(f"[API] {line.rstrip()}", flush=True)
-        # Wait for process to end
-        process.wait()
-        print(f"[API] Process ended with code {process.returncode}", flush=True)
     except Exception as e:
-        print(f"[API] ERROR: FastAPI crashed: {e}", flush=True)
-        import traceback
-        traceback.print_exc()
-        sys.exit(1)
+        if not shutdown_event.is_set():
+            print(f"[API] Output stream error: {e}", flush=True)
+
+
+def run_api_with_restart():
+    """Run the API with automatic restart on failure."""
+    global api_process
+    restart_count = 0
+    consecutive_failures = 0
+
+    while not shutdown_event.is_set():
+        try:
+            with api_lock:
+                api_process = start_api_process()
+                current_process = api_process
+
+            # Start output streaming in a separate thread
+            output_thread = threading.Thread(
+                target=stream_api_output,
+                args=(current_process,),
+                daemon=True
+            )
+            output_thread.start()
+
+            # Wait for API to be ready
+            if wait_for_port(API_PORT, timeout=90):
+                print(f"[API] API is ready on port {API_PORT}", flush=True)
+                consecutive_failures = 0  # Reset failure counter on success
+            else:
+                print(f"[API] API failed to start within timeout", flush=True)
+
+            # Monitor the process
+            while not shutdown_event.is_set():
+                exit_code = current_process.poll()
+                if exit_code is not None:
+                    print(f"[API] Process exited with code {exit_code}", flush=True)
+                    break
+                time.sleep(1)
+
+            # If we're shutting down, don't restart
+            if shutdown_event.is_set():
+                break
+
+            # Process died unexpectedly - prepare to restart
+            consecutive_failures += 1
+            restart_count += 1
+
+            if consecutive_failures >= MAX_RESTART_ATTEMPTS:
+                print(f"[API] Too many consecutive failures ({consecutive_failures}), giving up", flush=True)
+                break
+
+            print(f"[API] Restarting API (attempt {restart_count}, consecutive failures: {consecutive_failures})...", flush=True)
+            time.sleep(RESTART_DELAY)
+
+        except Exception as e:
+            print(f"[API] Error in API manager: {e}", flush=True)
+            if not shutdown_event.is_set():
+                consecutive_failures += 1
+                if consecutive_failures >= MAX_RESTART_ATTEMPTS:
+                    print(f"[API] Too many errors, stopping API manager", flush=True)
+                    break
+                time.sleep(RESTART_DELAY)
+
+    print("[API] API manager thread ending", flush=True)
+
+
+def health_monitor():
+    """Periodically check API health and log status."""
+    # Wait for initial startup
+    time.sleep(HEALTH_CHECK_INTERVAL)
+
+    failures_in_a_row = 0
+    while not shutdown_event.is_set():
+        if test_api_health(API_PORT, quiet=True):
+            if failures_in_a_row > 0:
+                print(f"[MONITOR] API recovered after {failures_in_a_row} failed checks", flush=True)
+            failures_in_a_row = 0
+        else:
+            failures_in_a_row += 1
+            print(f"[MONITOR] API health check failed ({failures_in_a_row} in a row)", flush=True)
+
+            # If API is down but process is running, it might be stuck
+            with api_lock:
+                if api_process and api_process.poll() is None and failures_in_a_row >= 3:
+                    print("[MONITOR] API process seems stuck, terminating for restart...", flush=True)
+                    api_process.terminate()
+
+        # Wait for next check
+        for _ in range(HEALTH_CHECK_INTERVAL):
+            if shutdown_event.is_set():
+                break
+            time.sleep(1)
+
+    print("[MONITOR] Health monitor thread ending", flush=True)
 
 
 def run_streamlit():
@@ -95,7 +237,6 @@ def run_streamlit():
     port = os.environ.get("PORT", "8501")
     print(f"[UI] Starting Streamlit on port {port}...", flush=True)
     print(f"[UI] API_BASE_URL is: {os.environ.get('API_BASE_URL', 'not set')}", flush=True)
-    print(f"[UI] Launching Streamlit...", flush=True)
 
     try:
         subprocess.run([
@@ -107,11 +248,9 @@ def run_streamlit():
             "--browser.gatherUsageStats", "false"
         ], check=True)
     except subprocess.CalledProcessError as e:
-        print(f"[UI] ERROR: Streamlit crashed with exit code {e.returncode}", flush=True)
-        sys.exit(1)
+        print(f"[UI] ERROR: Streamlit exited with code {e.returncode}", flush=True)
     except Exception as e:
-        print(f"[UI] ERROR: Streamlit failed to start: {e}", flush=True)
-        sys.exit(1)
+        print(f"[UI] ERROR: Streamlit failed: {e}", flush=True)
 
 
 def main():
@@ -124,33 +263,46 @@ def main():
     print(f"API_BASE_URL: {os.environ.get('API_BASE_URL', 'not set')}", flush=True)
     print("=" * 60, flush=True)
 
-    # Start API in background thread
-    print("[MAIN] Starting API thread...", flush=True)
-    api_thread = threading.Thread(target=run_api, daemon=True)
+    # Start API manager thread (non-daemon for proper cleanup)
+    print("[MAIN] Starting API manager thread...", flush=True)
+    api_thread = threading.Thread(target=run_api_with_restart, name="APIManager")
     api_thread.start()
-    print("[MAIN] API thread started", flush=True)
+    print("[MAIN] API manager thread started", flush=True)
 
-    # Wait for API to be ready (up to 90 seconds for model loading)
-    print("[MAIN] Waiting for API to be ready on port 8000...", flush=True)
-    if wait_for_port(8000, timeout=90):
-        print("[MAIN] ✅ Port 8000 is open!", flush=True)
-        # Additional health check
-        time.sleep(2)  # Give uvicorn a moment to fully start
-        if test_api_health(8000):
-            print("[MAIN] ✅ API health check passed!", flush=True)
+    # Wait for API to be ready before starting Streamlit
+    print("[MAIN] Waiting for API to be ready...", flush=True)
+    if wait_for_port(API_PORT, timeout=90):
+        print("[MAIN] API port is open!", flush=True)
+        time.sleep(2)  # Give uvicorn a moment to fully initialize
+        if test_api_health(API_PORT):
+            print("[MAIN] API health check passed!", flush=True)
         else:
-            print("[MAIN] ⚠️ API health check failed, but port is open", flush=True)
+            print("[MAIN] API health check failed, but continuing...", flush=True)
     else:
-        print("[MAIN] ❌ API not responding after 90s!", flush=True)
-        print("[MAIN] Starting Streamlit anyway...", flush=True)
+        print("[MAIN] API not responding after timeout, starting Streamlit anyway...", flush=True)
 
     # Set API_BASE_URL for Streamlit
-    os.environ["API_BASE_URL"] = "http://127.0.0.1:8000"
+    os.environ["API_BASE_URL"] = f"http://127.0.0.1:{API_PORT}"
     print(f"[MAIN] Set API_BASE_URL to: {os.environ['API_BASE_URL']}", flush=True)
 
-    # Run Streamlit in main thread (this is what Railway sees)
+    # Start health monitor thread (daemon - will stop when main exits)
+    print("[MAIN] Starting health monitor thread...", flush=True)
+    monitor_thread = threading.Thread(target=health_monitor, name="HealthMonitor", daemon=True)
+    monitor_thread.start()
+
+    # Run Streamlit in main thread
     print("[MAIN] Starting Streamlit...", flush=True)
-    run_streamlit()
+    try:
+        run_streamlit()
+    finally:
+        # Streamlit exited - trigger cleanup
+        print("[MAIN] Streamlit exited, initiating shutdown...", flush=True)
+        shutdown_event.set()
+
+        # Wait for API thread to finish (with timeout)
+        api_thread.join(timeout=10)
+        if api_thread.is_alive():
+            print("[MAIN] API thread didn't stop gracefully", flush=True)
 
 
 if __name__ == "__main__":
