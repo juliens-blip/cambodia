@@ -1,7 +1,7 @@
-"""Embedding service using multilingual-e5-large (local, free).
+"""Embedding service using multilingual-e5-small (local, free).
 
-Model: intfloat/multilingual-e5-large
-Dimension: 1024
+Model: intfloat/multilingual-e5-small
+Dimension: 384
 Languages: 100+ (including Khmer, English, Vietnamese)
 Cost: $0 (local inference via Hugging Face Transformers)
 
@@ -35,13 +35,11 @@ class EmbeddingService:
         Args:
             model_name: Hugging Face model identifier
                        Default: Uses EMBEDDING_MODEL env var or "intfloat/multilingual-e5-small"
-                       
-        Available models (1024 dim - compatible with pgvector table):
-            - intfloat/multilingual-e5-small: 470MB, 1024 dim, good multilingual (default)
-            - intfloat/multilingual-e5-base: 1.1GB, 1024 dim, better quality
-            - intfloat/multilingual-e5-large: 2.2GB, 1024 dim, best quality (local dev)
-            
-        Note: all-MiniLM-L6-v2 (384 dim) is NOT compatible with our pgvector table (1024 dim)
+
+        Available models:
+            - intfloat/multilingual-e5-small: 470MB, 384 dim, good multilingual (default, Railway compatible)
+            - intfloat/multilingual-e5-base: 1.1GB, 768 dim, better quality
+            - intfloat/multilingual-e5-large: 2.2GB, 1024 dim, best quality (local dev only)
         """
         import os
         

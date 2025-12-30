@@ -79,6 +79,31 @@ try:
                 except Exception as e:
                     st.error(f"Error: {e}")
 
+        # Test search button
+        st.markdown("#### 🔍 Test Semantic Search")
+        test_query = st.text_input("Test query", value="cashew market prices cambodia")
+        if st.button("🧪 Test Search"):
+            try:
+                test_url = f"{ADMIN_STATUS_URL.replace('/indexation-status', '/test-search')}?query={test_query}&commodity=cashew"
+                test_response = admin_client.get(test_url, timeout=60.0)
+                test_response.raise_for_status()
+                result = test_response.json()
+
+                if result.get("status") == "success":
+                    st.success(f"✅ Search works! Found {result.get('results_count', 0)} results")
+                    st.write(f"Embedding dimension: {result.get('embedding_dimension')}")
+
+                    if result.get("results"):
+                        st.markdown("**Sample results:**")
+                        for i, r in enumerate(result["results"], 1):
+                            with st.expander(f"Result {i} (similarity: {r.get('similarity', 0):.3f})"):
+                                st.write(r.get("chunk_text", ""))
+                                st.json(r.get("metadata", {}))
+                else:
+                    st.error(f"❌ Search failed: {result.get('error')}")
+            except Exception as e:
+                st.error(f"Error: {e}")
+
 except httpx.HTTPError as e:
     st.warning(f"Could not connect to admin API: {e}")
 except Exception as e:

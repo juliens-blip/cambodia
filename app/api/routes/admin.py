@@ -7,7 +7,7 @@ import re
 from uuid import uuid4
 
 from app.services.supabase_service import SupabaseService
-from app.services.embedding_service import EmbeddingService
+from app.services.embedding_service import get_embedding_service
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -44,7 +44,7 @@ async def index_documents_task():
     try:
         # Initialize services
         supabase = SupabaseService(settings.supabase_url, settings.supabase_key)
-        embedding_service = EmbeddingService()
+        embedding_service = get_embedding_service()  # Singleton - no duplicate model load
 
         logger.info(f"Embedding model dimension: {embedding_service.dimension}")
 
@@ -226,3 +226,60 @@ async def clear_embeddings() -> Dict[str, Any]:
     except Exception as e:
         logger.error(f"Error deleting embeddings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/test-search")
+async def test_search(query: str = "cashew market analysis", commodity: str = "cashew") -> Dict[str, Any]:
+    """
+    Test semantic search directly from the API.
+
+    This bypasses Streamlit to test if search works.
+    """
+    try:
+        from app.services.semantic_search_service import SemanticSearchService
+
+        logger.info(f"🔍 Testing search: query='{query}', commodity='{commodity}'")
+
+        # Initialize services - use singleton to avoid reloading model
+        supabase = SupabaseService(settings.supabase_url, settings.supabase_key)
+        embedding = get_embedding_service()  # Singleton
+        search = SemanticSearchService(supabase, embedding)
+
+        logger.info(f"Embedding dimension: {embedding.dimension}")
+
+        # Perform search
+        import asyncio
+        results = asyncio.get_event_loop().run_until_complete(
+            search.search(
+                query=query,
+                top_k=5,
+                similarity_threshold=0.3,
+                commodity=commodity
+            )
+        )
+
+        logger.info(f"Search returned {len(results)} results")
+
+        return {
+            "status": "success",
+            "query": query,
+            "commodity": commodity,
+            "embedding_dimension": embedding.dimension,
+            "results_count": len(results),
+            "results": [
+                {
+                    "chunk_text": r.get("chunk_text", "")[:200] + "...",
+                    "similarity": r.get("similarity"),
+                    "metadata": r.get("metadata", {})
+                }
+                for r in results[:3]  # Return first 3
+            ]
+        }
+
+    except Exception as e:
+        logger.error(f"Test search error: {e}", exc_info=True)
+        return {
+            "status": "error",
+            "error": str(e),
+            "query": query
+        }
