@@ -79,7 +79,7 @@ async def index_documents_task():
             # Generate embeddings
             embeddings = []
             for chunk in chunks:
-                emb = embedding_service.embed_document(chunk)
+                emb = embedding_service.embed_text(chunk)  # embed_text for documents
                 embeddings.append(emb)
 
             # Store in database
