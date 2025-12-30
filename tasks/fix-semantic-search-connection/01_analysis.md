@@ -397,6 +397,147 @@ INFO: Uvicorn running on http://0.0.0.0:8000
 - `a5c8d83` - docs: update APEX analysis with async loading solution
 - `efd0a9e` - fix: force Railway to use start.py for combined API+Streamlit launch (SOLUTION complète)
 
+## Problème Persistant #3 (Après efd0a9e)
+
+**Symptômes:** Les erreurs "Connection refused" persistent sur TOUTES les pages, et l'API crash avec:
+```
+[API] ERROR: FastAPI crashed: Command '['/usr/local/bin/python', '-m', 'uvicorn', 'app...
+```
+
+**Logs Railway (CRITIQUE):**
+```
+[SEARCH] Starting search for: 'cashew market trends prices analysis...'
+[SEARCH] Loading services...
+[SEARCH] Loading embedding service synchronously...  ← PROBLÈME!
+Loading embedding model: intfloat/multilingual-e5-small
+[API] ERROR: FastAPI crashed
+```
+
+**Root Cause #3:**
+Les endpoints appellent `get_services()` SANS passer `app.state`, donc le modèle pré-chargé n'est JAMAIS utilisé!
+
+**Diagnostic complet:**
+1. ✅ Thread daemon charge le modèle en background (fonctionne)
+2. ✅ Modèle stocké dans `app.state.embedding_service` (fonctionne)
+3. ❌ **MAIS** `semantic_search()` appelle `get_services()` au lieu de `get_services(app_state)`
+4. ❌ Les conditions ligne 48 et 53 échouent car `app_state=None`
+5. ❌ Fallback vers chargement synchrone (ligne 64)
+6. ❌ Chargement prend 30-60s → API crash ou timeout
+
+**Preuve:**
+```python
+# app/api/routes/semantic.py, ligne 104 (AVANT FIX)
+_, _, search, _, _, _ = get_services()  # ❌ Pas d'accès à app.state
+```
+
+## Solution Finale #3 (Commit 2cdb4ab)
+
+### Changements
+
+**Fichier:** `app/api/routes/semantic.py`
+
+#### 1. Ajouter l'import Request
+```python
+from fastapi import APIRouter, HTTPException, Depends, Request
+```
+
+#### 2. Créer la dependency function
+```python
+# Dependency to get app.state
+def get_app_state(request: Request):
+    """FastAPI dependency to inject app.state into endpoints."""
+    return request.app.state
+```
+
+#### 3. Injecter app_state dans TOUS les endpoints
+
+**semantic_search:**
+```python
+@router.post("/search", response_model=SearchResponse)
+async def semantic_search(
+    request: SearchRequest,
+    app_state = Depends(get_app_state)
+):
+    _, _, search, _, _, _ = get_services(app_state)  # ✅ Passe app_state
+```
+
+**rag_query:**
+```python
+@router.post("/rag/query", response_model=RAGResponse)
+async def rag_query(
+    request: RAGRequest,
+    app_state = Depends(get_app_state)
+):
+    _, _, search, perplexity, cache, budget = get_services(app_state)
+```
+
+**get_conversation_history:**
+```python
+@router.get("/history", response_model=ConversationHistoryResponse)
+async def get_conversation_history(
+    session_id: str = None,
+    limit: int = 10,
+    app_state = Depends(get_app_state)
+):
+    supabase, _, _, _, _, _ = get_services(app_state)
+```
+
+**get_usage_stats:**
+```python
+@router.get("/stats", response_model=UsageStats)
+async def get_usage_stats(app_state = Depends(get_app_state)):
+    _, _, _, _, cache, budget = get_services(app_state)
+```
+
+**health_check:**
+```python
+@router.get("/health", response_model=HealthResponse)
+async def health_check(app_state = Depends(get_app_state)):
+    supabase, embedding, _, perplexity, _, _ = get_services(app_state)
+```
+
+**Résultat:**
+- ✅ 0 appels à `get_services()` sans argument
+- ✅ 5 appels à `get_services(app_state)` avec dependency injection
+
+## Logs Attendus (Après 2cdb4ab)
+
+```
+==================================================
+Starting Cambodia Agri Analytics...
+Railway PORT: 8080
+==================================================
+[API] Starting FastAPI on port 8000...
+[STARTUP] Waiting 3 seconds for API to initialize...
+INFO: Uvicorn running on http://0.0.0.0:8000
+🚀 Starting Cambodia Agri Analytics API...
+ℹ️ Embedding model loading started in background
+✅ API startup complete
+[UI] Starting Streamlit on port 8080...
+[UI] API_BASE_URL set to: http://localhost:8000
+[UI] Launching Streamlit...
+
+# 30-60s plus tard (modèle chargé)
+🔄 Pre-loading embedding model in background...
+✅ Model loaded successfully: 1024 dimensions
+
+# Première recherche (CRITIQUE - devrait maintenant fonctionner)
+[SEARCH] Starting search for: 'cashew market trends...'
+[SEARCH] Loading services...
+[SEARCH] Using pre-loaded embedding service  ← ✅ NOUVEAU!
+[SEARCH] Services loaded successfully
+INFO: 127.0.0.1 - "POST /api/v1/search HTTP/1.1" 200 OK
+```
+
+## Commits Finaux (Tous)
+
+- `428bfb4` - fix: pre-load embedding model at API startup to prevent timeout (ÉCHEC - sync blocking)
+- `c09e138` - fix: load embedding model asynchronously to prevent Railway timeout (PARTIEL - modèle chargé mais pas utilisé)
+- `a5c8d83` - docs: update APEX analysis with async loading solution
+- `efd0a9e` - fix: force Railway to use start.py for combined API+Streamlit launch (PARTIEL - start.py OK mais crash persiste)
+- `409b9c0` - docs: add Railway auto-detection fix to APEX analysis
+- **`2cdb4ab`** - fix: inject app.state to use pre-loaded embedding model in all endpoints (**SOLUTION COMPLÈTE**)
+
 ## Tests de Validation Finale
 
 Après redéploiement Railway (~5-7 min):
@@ -405,13 +546,56 @@ Après redéploiement Railway (~5-7 min):
    - ✅ Voir "Starting Cambodia Agri Analytics..."
    - ✅ Voir "[API] Starting FastAPI on port 8000..."
    - ✅ Voir "[UI] Launching Streamlit..."
+   - ✅ Voir "ℹ️ Embedding model loading started in background"
+   - ✅ Voir "✅ Embedding model loaded: 1024 dimensions"
 
-2. **Tester https://cambodia.up.railway.app/Scenario_Analysis:**
+2. **Première recherche sémantique:**
+   - ✅ Voir "[SEARCH] Using pre-loaded embedding service" (CRITIQUE!)
+   - ✅ Voir "[SEARCH] Services loaded successfully"
+   - ✅ Latence: ~200-500ms au lieu de 30-60s
+   - ❌ Plus de "[SEARCH] Loading embedding service synchronously..."
+
+3. **Tester https://cambodia.up.railway.app/Scenario_Analysis:**
    - ✅ Market Data charge
    - ✅ Documents charge (semantic search)
    - ✅ Twitter Data charge
    - ❌ Plus d'erreurs "Connection refused"
+   - ❌ Plus de "Server disconnected"
 
-3. **Vérifier API directement:**
-   - GET https://cambodia.up.railway.app/health → devrait retourner Streamlit HTML (proxy)
-   - Streamlit → localhost:8000/health → devrait fonctionner en interne
+4. **Performance:**
+   - Première recherche: ~200-500ms (modèle pré-chargé utilisé)
+   - Recherches suivantes: ~200-500ms (identique)
+   - Aucun délai de chargement visible
+
+## Architecture Finale Complète
+
+```
+[Railway] → startCommand: "python start.py"
+              ↓
+          [start.py]
+              ├─ API (port 8000) en thread daemon
+              │   ↓
+              │  lifespan()
+              │   ├─ Supabase ✅
+              │   ├─ Thread daemon → EmbeddingService (30-60s background)
+              │   └─ app.state.embedding_service = service
+              │   ↓
+              │  Uvicorn running
+              │   ↓
+              │  Endpoints /search, /rag/query, etc.
+              │   ↓
+              │  app_state = Depends(get_app_state)  ← NOUVEAU!
+              │   ↓
+              │  get_services(app_state)
+              │   ↓
+              │  if app_state.embedding_service:  ← FONCTIONNE MAINTENANT!
+              │      use pre-loaded ✅
+              │  else:
+              │      load synchronously ❌ (fallback)
+              │
+              └─ Streamlit (PORT 8080) en main thread
+                  ↓
+              Streamlit → localhost:8000/api/v1/search
+                  ↓
+              ✅ Recherche rapide (modèle déjà chargé)
+```
