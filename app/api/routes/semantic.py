@@ -1,5 +1,5 @@
 """API routes for semantic search and RAG queries."""
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Request
 from typing import List
 import time
 import logging
@@ -79,8 +79,17 @@ def get_services(app_state=None):
     return _supabase, _embedding, _search, _perplexity, _cache, _budget
 
 
+# Dependency to get app.state
+def get_app_state(request: Request):
+    """FastAPI dependency to inject app.state into endpoints."""
+    return request.app.state
+
+
 @router.post("/search", response_model=SearchResponse)
-async def semantic_search(request: SearchRequest):
+async def semantic_search(
+    request: SearchRequest,
+    app_state = Depends(get_app_state)
+):
     """
     Semantic search endpoint.
 
@@ -99,9 +108,9 @@ async def semantic_search(request: SearchRequest):
     try:
         logger.info(f"[SEARCH] Starting search for: '{request.query[:50]}...'")
 
-        # Get services (this loads the embedding model if not already loaded)
+        # Get services (uses pre-loaded embedding model from app.state)
         logger.info("[SEARCH] Loading services...")
-        _, _, search, _, _, _ = get_services()
+        _, _, search, _, _, _ = get_services(app_state)
         logger.info("[SEARCH] Services loaded successfully")
 
         # Perform search
@@ -146,7 +155,10 @@ async def semantic_search(request: SearchRequest):
 
 
 @router.post("/rag/query", response_model=RAGResponse)
-async def rag_query(request: RAGRequest):
+async def rag_query(
+    request: RAGRequest,
+    app_state = Depends(get_app_state)
+):
     """
     RAG (Retrieval Augmented Generation) query endpoint.
 
@@ -165,7 +177,7 @@ async def rag_query(request: RAGRequest):
     session_id = "default"  # TODO: Get from request headers
 
     try:
-        _, _, search, perplexity, cache, budget = get_services()
+        _, _, search, perplexity, cache, budget = get_services(app_state)
 
         # Check budget
         can_execute, reason = await budget.can_execute_rag_query()
@@ -278,7 +290,8 @@ async def rag_query(request: RAGRequest):
 @router.get("/history", response_model=ConversationHistoryResponse)
 async def get_conversation_history(
     session_id: str = None,
-    limit: int = 10
+    limit: int = 10,
+    app_state = Depends(get_app_state)
 ):
     """
     Get conversation history for a session.
@@ -289,7 +302,7 @@ async def get_conversation_history(
     Returns recent conversation messages.
     """
     try:
-        supabase, _, _, _, _, _ = get_services()
+        supabase, _, _, _, _, _ = get_services(app_state)
 
         # Query conversation history from database
         query = supabase.client.table("conversation_history").select("*")
@@ -313,7 +326,7 @@ async def get_conversation_history(
 
 
 @router.get("/stats", response_model=UsageStats)
-async def get_usage_stats():
+async def get_usage_stats(app_state = Depends(get_app_state)):
     """
     Get usage statistics and budget tracking.
 
@@ -326,7 +339,7 @@ async def get_usage_stats():
     Useful for monitoring and budget management.
     """
     try:
-        _, _, _, _, cache, budget = get_services()
+        _, _, _, _, cache, budget = get_services(app_state)
 
         # Get budget stats
         budget_stats = await budget.get_current_month_stats()
@@ -359,14 +372,14 @@ async def get_usage_stats():
 
 
 @router.get("/health", response_model=HealthResponse)
-async def health_check():
+async def health_check(app_state = Depends(get_app_state)):
     """
     Health check endpoint.
 
     Returns system status and service availability.
     """
     try:
-        supabase, embedding, _, perplexity, _, _ = get_services()
+        supabase, embedding, _, perplexity, _, _ = get_services(app_state)
 
         services = {
             "supabase": "ok",
