@@ -83,9 +83,12 @@ def main():
     api_thread = threading.Thread(target=run_api, daemon=True)
     api_thread.start()
 
-    # Wait a bit for API to start (2-5 seconds)
-    print("[STARTUP] Waiting 3 seconds for API to initialize...", flush=True)
-    time.sleep(3)
+    # Wait for API to be ready (up to 90 seconds for model loading)
+    print("[STARTUP] Waiting for API to be ready on port 8000...", flush=True)
+    if wait_for_port(8000, timeout=90):
+        print("[STARTUP] ✅ API is ready!", flush=True)
+    else:
+        print("[STARTUP] ⚠️ API not responding after 90s, starting Streamlit anyway...", flush=True)
 
     # Run Streamlit in main thread (this is what Railway sees)
     run_streamlit()
