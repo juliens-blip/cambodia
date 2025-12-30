@@ -21,6 +21,9 @@ t = get_all_translations(language)
 
 # API endpoints
 BASE_URL = f"{API_BASE_URL}/api/v1"
+DOCS_TOP_K = 5
+DOCS_THRESHOLD = 0.3
+DOCS_SOURCE = "GDrive"
 
 # Title
 st.title(f"📊 {t.get('scenario_title', 'Multi-Perspective Analysis')}")
@@ -78,7 +81,7 @@ def fetch_market_data(commodity: str, days: int):
     return None
 
 
-def fetch_historical_docs(commodity: str, query: str, limit: int = 5):
+def fetch_historical_docs(commodity: str, query: str, limit: int = DOCS_TOP_K, threshold: float = DOCS_THRESHOLD):
     """Fetch relevant historical documents (no caching to avoid stale errors)."""
     try:
         with httpx.Client() as client:
@@ -86,9 +89,9 @@ def fetch_historical_docs(commodity: str, query: str, limit: int = 5):
             payload = {
                 "query": query,
                 "top_k": limit,
-                "similarity_threshold": 0.3,  # Lower threshold to get more results
+                "similarity_threshold": threshold,  # Lower threshold to get more results
                 "commodity": commodity,
-                "source": "GDrive"
+                "source": DOCS_SOURCE
             }
             print(f"[DEBUG] Searching documents: {url}", flush=True)
             # First search can take 60+ seconds (model loading)
@@ -251,6 +254,53 @@ def display_data_sources(market_data, docs_data, twitter_data):
         )
 
 
+def display_documents_used(docs_data, commodity: str, top_k: int, threshold: float):
+    """Display documents used and general exclusion reasons."""
+    if language == "fr":
+        title = "Documents utilises"
+        no_docs = "Aucun document utilise pour cette analyse."
+        reasons_title = "Pourquoi les autres documents ne sont pas retenus"
+        reasons = [
+            f"Le moteur ne retient que les top {top_k} documents les plus similaires.",
+            f"Seuil de similarite applique: {threshold:.2f}.",
+            f"Filtre actif: source={DOCS_SOURCE} et commodity={commodity}.",
+            "Les documents non indexes ou incomplets ne peuvent pas etre proposes."
+        ]
+        list_label = "Voir la liste des documents utilises"
+    else:
+        title = "Documents used"
+        no_docs = "No documents were used for this analysis."
+        reasons_title = "Why other documents were not selected"
+        reasons = [
+            f"Only the top {top_k} most similar documents are selected.",
+            f"Similarity threshold applied: {threshold:.2f}.",
+            f"Active filter: source={DOCS_SOURCE} and commodity={commodity}.",
+            "Unindexed or incomplete documents cannot be selected."
+        ]
+        list_label = "View documents used"
+
+    st.markdown(f"### 📄 {title}")
+
+    results = docs_data.get("results", []) if docs_data else []
+    if not results:
+        st.info(no_docs)
+    else:
+        with st.expander(f"{list_label} ({len(results)})", expanded=True):
+            for r in results:
+                meta = r.get("metadata", {})
+                title_text = meta.get("title", "Untitled")
+                url = meta.get("url")
+                similarity = r.get("similarity", 0.0)
+                if url:
+                    st.markdown(f"- [{title_text}]({url}) — similarity {similarity:.2f}")
+                else:
+                    st.markdown(f"- {title_text} — similarity {similarity:.2f}")
+
+    st.markdown(f"**{reasons_title}:**")
+    for reason in reasons:
+        st.markdown(f"- {reason}")
+
+
 def display_key_tweet(twitter_data):
     """Display the most relevant tweet and other tweets in an expander."""
     if not twitter_data:
@@ -335,7 +385,7 @@ try:
 
         # Fetch historical documents
         search_query = f"{commodity} market trends prices analysis"
-        docs_data = fetch_historical_docs(commodity, search_query, limit=5)
+        docs_data = fetch_historical_docs(commodity, search_query, limit=DOCS_TOP_K, threshold=DOCS_THRESHOLD)
         docs_context = build_docs_context(docs_data)
 
         # Fetch Twitter data
@@ -356,6 +406,11 @@ try:
 
     # Display data sources summary
     display_data_sources(market_data, docs_data, twitter_data)
+
+    st.markdown("---")
+
+    # Display documents used
+    display_documents_used(docs_data, commodity, DOCS_TOP_K, DOCS_THRESHOLD)
 
     st.markdown("---")
 

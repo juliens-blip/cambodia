@@ -2088,3 +2088,24 @@ INFO: Uvicorn running on http://0.0.0.0:8000
 
 *Session effectuée par Claude Sonnet 4.5 le 2025-12-30*
 *Commits: c09e138 + efd0a9e | Fix: Async loading + Railway startCommand*
+
+---
+
+## MAJ 2025-12-30 - Scenario Analysis GDrive (docs utilises)
+
+Ce qui a ete fait:
+- UI Scenario Analysis: creation d un docs_context (top_k=5, seuil=0.3, source=GDrive) et envoi a /api/v1/trends/scenario.
+- API trends: accepte docs_context, injecte les docs dans le prompt Perplexity, retourne docs_used/docs_count.
+- Admin indexation: app/main.py bascule vers admin_v2 (indexation plus stable).
+- Fix script local: embed_document remplace par embed_text dans scripts/index_existing_documents.py.
+- Doc: README semantic search note 384D en production (e5-small).
+
+Comment:
+- La recherche semantique passe par /api/v1/search (pgvector + match_documents).
+- Les resultats GDrive sont formates en contexte compact (titre, similarite, extrait) pour Perplexity.
+- Le prompt scenario commence par "LOCAL DOCUMENTS (Google Drive)" si docs_context present.
+- UI affiche "Documents utilises" + raisons generales d exclusion (top_k, seuil, filtres, indexation).
+
+Validation:
+- Local: indexation_status OK, test-search OK, search GDrive OK.
+- Prod (retour user): 35 documents indexes; 3 docs utilises cashew, 4 rubber.

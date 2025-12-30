@@ -1073,6 +1073,8 @@ Blocages :
 - README semantic search: note production 384D.
 - MCP Context7 installe (devtools/context7) et configure dans .mcp.json.
 - Validation locale: /admin/indexation-status = 34 docs, 46 chunks; /admin/test-search = 5 resultats; /api/v1/search source=GDrive = 4 resultats.
+- Prod (retour user): 35 documents indexes; 3 docs utilises pour cashew, 4 pour rubber.
+- UI Scenario Analysis: ajout section "Documents utilises" + raisons generales d'exclusion.
 
 **FIN CLAUDEMEMOIRE**
 
