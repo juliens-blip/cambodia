@@ -12,7 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from app.config import settings
-from app.api.routes import prices, production, reports, search, quality
+from app.api.routes import prices, production, reports, search, quality, admin
 from app.services import ChromaDBService, SupabaseService
 from app.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
 
@@ -149,6 +149,7 @@ app.include_router(production.router, prefix="/api/production", tags=["Productio
 app.include_router(reports.router, prefix="/api/reports", tags=["Reports"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
 app.include_router(quality.router, prefix="/api", tags=["Data Quality"])
+app.include_router(admin.router, tags=["Admin"])
 
 # Optional routers (only if dependencies available)
 if SEMANTIC_AVAILABLE:
