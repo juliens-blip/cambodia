@@ -28,6 +28,13 @@ st.markdown(t.get('scenario_subtitle', '3 scenarios based on market prices, hist
 
 # Sidebar - Settings
 st.sidebar.markdown(f"### {t.get('settings', 'Settings')}")
+
+# Clear cache button
+if st.sidebar.button("🔄 Clear Cache", help="Clear cached data to fetch fresh results"):
+    st.cache_data.clear()
+    st.success("Cache cleared! Refreshing...")
+    st.rerun()
+
 commodity = st.sidebar.selectbox(
     t.get('filter_commodity', 'Select Commodity'),
     options=["cashew", "rubber"],
@@ -71,27 +78,33 @@ def fetch_market_data(commodity: str, days: int):
     return None
 
 
-@st.cache_data(ttl=3600)
 def fetch_historical_docs(commodity: str, query: str, limit: int = 5):
-    """Fetch relevant historical documents."""
+    """Fetch relevant historical documents (no caching to avoid stale errors)."""
     try:
         with httpx.Client() as client:
             url = f"{BASE_URL}/search"
             payload = {
                 "query": query,
                 "top_k": limit,
-                "similarity_threshold": 0.5,
+                "similarity_threshold": 0.3,  # Lower threshold to get more results
                 "commodity": commodity
             }
+            print(f"[DEBUG] Searching documents: {url}", flush=True)
             # First search can take 60+ seconds (model loading)
             response = client.post(url, json=payload, timeout=120.0)
+            print(f"[DEBUG] Search response: {response.status_code}", flush=True)
             if response.status_code == 200:
-                return response.json()
+                data = response.json()
+                print(f"[DEBUG] Found {data.get('count', 0)} documents", flush=True)
+                return data
+            else:
+                print(f"[DEBUG] Search error: {response.text}", flush=True)
     except httpx.TimeoutException:
         st.warning(f"⏱️ Document search timed out (model loading can take time). Try again.")
         return None
     except Exception as e:
         st.warning(f"⚠️ Error fetching documents: {str(e)}")
+        print(f"[DEBUG] Search exception: {e}", flush=True)
     return None
 
 
