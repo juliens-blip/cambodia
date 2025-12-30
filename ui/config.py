@@ -18,6 +18,11 @@ TRENDS_URL = f"{API_BASE_URL}/api/v1/trends"
 TRENDS_SUMMARY_URL = f"{API_BASE_URL}/api/v1/trends/summary"
 ALERTS_URL = f"{API_BASE_URL}/api/v1/trends/alerts"
 
+# Admin endpoints for document indexation
+ADMIN_INDEX_URL = f"{API_BASE_URL}/api/v1/admin/index-documents"
+ADMIN_STATUS_URL = f"{API_BASE_URL}/api/v1/admin/indexation-status"
+ADMIN_CLEAR_URL = f"{API_BASE_URL}/api/v1/admin/clear-embeddings"
+
 def get_api_url(endpoint: str) -> str:
     """Get full API URL for an endpoint."""
     if endpoint.startswith("/"):

@@ -11,7 +11,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
-from ui.config import STATS_URL, TRENDS_SUMMARY_URL, ALERTS_URL
+from ui.config import STATS_URL, TRENDS_SUMMARY_URL, ALERTS_URL, ADMIN_INDEX_URL, ADMIN_STATUS_URL, ADMIN_CLEAR_URL
 
 # Page config
 st.set_page_config(page_title="Admin", page_icon="📊", layout="wide")
@@ -25,6 +25,66 @@ API_URL = STATS_URL
 
 # Title
 st.title(f"📊 {t['admin_title']}")
+
+# Document Indexation Section
+st.markdown("---")
+st.markdown("### 📚 Document Indexation (Google Drive)")
+
+try:
+    with httpx.Client() as admin_client:
+        # Check current status
+        status_response = admin_client.get(ADMIN_STATUS_URL, timeout=10.0)
+        status_response.raise_for_status()
+        status = status_response.json()
+
+        col1, col2, col3 = st.columns(3)
+
+        with col1:
+            st.metric("Documents in DB", status.get('documents_in_context', 0))
+
+        with col2:
+            st.metric("Chunks Indexed", status.get('chunks_indexed', 0))
+
+        with col3:
+            indexed = status.get('indexation_complete', False)
+            st.metric("Status", "✅ Indexed" if indexed else "⏳ Pending")
+
+        # Sample metadata
+        if status.get('sample_metadata'):
+            with st.expander("Sample indexed document"):
+                st.json(status['sample_metadata'])
+
+        # Action buttons
+        col_btn1, col_btn2 = st.columns(2)
+
+        with col_btn1:
+            if st.button("🚀 Start Indexation", type="primary"):
+                try:
+                    index_response = admin_client.post(ADMIN_INDEX_URL, timeout=30.0)
+                    index_response.raise_for_status()
+                    result = index_response.json()
+                    st.success(f"✅ Indexation started! {result.get('documents_to_index', 0)} documents to process.")
+                    st.info("Check Railway logs for progress. Refresh page to see updated status.")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+        with col_btn2:
+            if st.button("🗑️ Clear Embeddings"):
+                try:
+                    clear_response = admin_client.delete(ADMIN_CLEAR_URL, timeout=10.0)
+                    clear_response.raise_for_status()
+                    result = clear_response.json()
+                    st.warning(f"Deleted {result.get('embeddings_deleted', 0)} embeddings.")
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+except httpx.HTTPError as e:
+    st.warning(f"Could not connect to admin API: {e}")
+except Exception as e:
+    st.warning(f"Admin API error: {e}")
+
+st.markdown("---")
 
 # Auto-refresh
 auto_refresh = st.sidebar.checkbox("Auto-refresh (30s)", value=False)
