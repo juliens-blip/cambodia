@@ -13,6 +13,8 @@ Phase 3 implements a production-ready semantic search and Retrieval-Augmented Ge
 - **RAG Integration**: Perplexity AI integration for context-aware Q&A
 - **Zero-Cost Embeddings**: Local inference using Hugging Face Transformers
 
+**Note (production):** Railway uses `intfloat/multilingual-e5-small` (384 dimensions) for memory constraints. References to 1024D/e5-large below apply to local or optional setups.
+
 ## System Architecture
 
 ```

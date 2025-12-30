@@ -103,7 +103,7 @@ async def index_document(
     try:
         embeddings = []
         for chunk in chunks:
-            emb = embedding_service.embed_document(chunk)
+            emb = embedding_service.embed_text(chunk)
             embeddings.append(emb)
 
         logger.info(f"Generated {len(embeddings)} embeddings")

@@ -87,7 +87,8 @@ def fetch_historical_docs(commodity: str, query: str, limit: int = 5):
                 "query": query,
                 "top_k": limit,
                 "similarity_threshold": 0.3,  # Lower threshold to get more results
-                "commodity": commodity
+                "commodity": commodity,
+                "source": "GDrive"
             }
             print(f"[DEBUG] Searching documents: {url}", flush=True)
             # First search can take 60+ seconds (model loading)
@@ -137,8 +138,34 @@ def fetch_twitter_data(commodity: str):
     return None
 
 
+def build_docs_context(docs_data: dict, max_chunks: int = 5, max_chars: int = 1200) -> str:
+    """Build a compact docs context string from semantic search results."""
+    if not docs_data:
+        return ""
+
+    results = docs_data.get("results", [])
+    if not results:
+        return ""
+
+    context_parts = []
+    for i, result in enumerate(results[:max_chunks], 1):
+        metadata = result.get("metadata", {})
+        source = metadata.get("source", "Unknown")
+        title = metadata.get("title", "Untitled")
+        similarity = result.get("similarity", 0.0)
+        text = result.get("chunk_text", "")
+
+        if len(text) > max_chars:
+            text = text[:max_chars] + "..."
+
+        header = f"[Source {i}: {source} - {title[:50]}] (Similarity: {similarity:.2f})"
+        context_parts.append(f"{header}\n{text}")
+
+    return "\n\n---\n\n".join(context_parts)
+
+
 @st.cache_data(ttl=3600)
-def generate_scenario_analysis(commodity: str, scenario_type: str, market_data: dict, docs_data: dict, twitter_data: dict):
+def generate_scenario_analysis(commodity: str, scenario_type: str, market_data: dict, docs_context: str, twitter_data: dict):
     """
     Generate scenario analysis using the trends API endpoint.
 
@@ -156,6 +183,8 @@ def generate_scenario_analysis(commodity: str, scenario_type: str, market_data: 
                 json_data["price_data"] = market_data
             if twitter_data:
                 json_data["twitter_data"] = twitter_data
+            if docs_context:
+                json_data["docs_context"] = docs_context
             
             # Call the API (can take 30-60 seconds for Perplexity)
             response = client.post(url, params=params, json=json_data if json_data else None, timeout=120.0)
@@ -307,6 +336,7 @@ try:
         # Fetch historical documents
         search_query = f"{commodity} market trends prices analysis"
         docs_data = fetch_historical_docs(commodity, search_query, limit=5)
+        docs_context = build_docs_context(docs_data)
 
         # Fetch Twitter data
         twitter_data = fetch_twitter_data(commodity)
@@ -346,7 +376,7 @@ try:
         st.caption(t.get('scenario_based_on', 'Based on') + f": {t.get('scenario_market_data', 'Market data')}, {t.get('scenario_historical_docs', 'Historical documents')}, {t.get('scenario_twitter_news', 'Twitter/X news')}")
 
         with st.spinner(t.get('scenario_generating', 'Generating analysis...')):
-            pessimistic = generate_scenario_analysis(commodity, 'pessimistic', market_data, docs_data, twitter_data)
+            pessimistic = generate_scenario_analysis(commodity, 'pessimistic', market_data, docs_context, twitter_data)
 
         display_scenario_analysis('pessimistic', pessimistic, '#ff4b4b')
 
@@ -355,7 +385,7 @@ try:
         st.caption(t.get('scenario_based_on', 'Based on') + f": {t.get('scenario_market_data', 'Market data')}, {t.get('scenario_historical_docs', 'Historical documents')}, {t.get('scenario_twitter_news', 'Twitter/X news')}")
 
         with st.spinner(t.get('scenario_generating', 'Generating analysis...')):
-            realistic = generate_scenario_analysis(commodity, 'realistic', market_data, docs_data, twitter_data)
+            realistic = generate_scenario_analysis(commodity, 'realistic', market_data, docs_context, twitter_data)
 
         display_scenario_analysis('realistic', realistic, '#ffa500')
 
@@ -364,7 +394,7 @@ try:
         st.caption(t.get('scenario_based_on', 'Based on') + f": {t.get('scenario_market_data', 'Market data')}, {t.get('scenario_historical_docs', 'Historical documents')}, {t.get('scenario_twitter_news', 'Twitter/X news')}")
 
         with st.spinner(t.get('scenario_generating', 'Generating analysis...')):
-            optimistic = generate_scenario_analysis(commodity, 'optimistic', market_data, docs_data, twitter_data)
+            optimistic = generate_scenario_analysis(commodity, 'optimistic', market_data, docs_context, twitter_data)
 
         display_scenario_analysis('optimistic', optimistic, '#00cc66')
 

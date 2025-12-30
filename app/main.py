@@ -12,7 +12,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 from app.config import settings
-from app.api.routes import prices, production, reports, search, quality, admin
+from app.api.routes import prices, production, reports, search, quality, admin_v2 as admin
 from app.services import ChromaDBService, SupabaseService
 from app.middleware.rate_limiter import RateLimiter, RateLimitMiddleware
 

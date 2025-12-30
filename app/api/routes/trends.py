@@ -1,5 +1,5 @@
 """API routes for market trends analysis."""
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException, Query, Body
 from typing import List, Optional
 from datetime import date
 import logging
@@ -275,8 +275,9 @@ async def get_public_prices(
 async def generate_scenario_analysis(
     commodity: str,
     scenario_type: str = Query(default="realistic", regex="^(pessimistic|realistic|optimistic)$"),
-    price_data: Optional[dict] = None,
-    twitter_data: Optional[dict] = None
+    price_data: Optional[dict] = Body(default=None),
+    twitter_data: Optional[dict] = Body(default=None),
+    docs_context: Optional[str] = Body(default=None)
 ):
     """
     Generate AI scenario analysis for a commodity.
@@ -285,6 +286,7 @@ async def generate_scenario_analysis(
     - **scenario_type**: 'pessimistic', 'realistic', or 'optimistic'
     - **price_data**: Optional current price data (from /public/prices)
     - **twitter_data**: Optional Twitter sentiment data (from /latest)
+    - **docs_context**: Optional semantic search context (GDrive docs)
     
     Uses Perplexity AI to generate market scenario analysis.
     Cost: ~$0.005 per analysis.
@@ -311,12 +313,23 @@ async def generate_scenario_analysis(
         if twitter_data:
             twitter_sentiment = twitter_data.get("twitter_sentiment", "neutral")
             overall_trend = twitter_data.get("overall_trend", "neutral")
+
+        docs_used = bool(docs_context and docs_context.strip())
+        docs_count = docs_context.count("[Source ") if docs_used else 0
+        docs_block = ""
+        if docs_used:
+            docs_block = (
+                "LOCAL DOCUMENTS (Google Drive):\n"
+                f"{docs_context}\n\n"
+                "---\n\n"
+                "Use the local documents as primary sources and cite them explicitly.\n\n"
+            )
         
         # Build prompt based on scenario type
         scenario_prompts = {
             'pessimistic': f"""As a conservative market analyst, provide a PESSIMISTIC (bearish) analysis for {commodity} market.
 
-Current market data:
+{docs_block}Current market data:
 - Current price: ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
@@ -331,7 +344,7 @@ Be realistic but cautious. Keep response under 300 words.""",
 
             'realistic': f"""As a balanced market analyst, provide a REALISTIC (neutral) analysis for {commodity} market.
 
-Current market data:
+{docs_block}Current market data:
 - Current price: ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
@@ -346,7 +359,7 @@ Be objective and data-driven. Keep response under 300 words.""",
 
             'optimistic': f"""As an opportunity-focused market analyst, provide an OPTIMISTIC (bullish) analysis for {commodity} market.
 
-Current market data:
+{docs_block}Current market data:
 - Current price: ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
@@ -373,7 +386,9 @@ Be realistic but optimistic. Keep response under 300 words."""
             "price_context": {
                 "current_price": current_price,
                 "price_change_pct": price_change
-            }
+            },
+            "docs_used": docs_used,
+            "docs_count": docs_count
         }
         
     except Exception as e:

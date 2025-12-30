@@ -1059,8 +1059,23 @@ Blocages :
   - Solution: run sans `--reload` ou ignorer `.venv311` via WATCHFILES_IGNORE.
 - Streamlit: prompt email 1ere fois -> Enter.
 
+---
+
+## MAJ SESSION 2025-12-30 - Scenario Analysis GDrive docs
+
+- Plan APEX cree: tasks/scenario-analysis-gdrive/01_analysis.md + 02_plan.md.
+- Constat: Scenario Analysis ignore les docs; ajouter docs_context dans le payload + prompt.
+- Indexation: admin_v2 recommande pour stabiliser OOM (Railway).
+- Context7 non disponible dans cet environnement; docs locales utilisees.
+- UI: construction docs_context depuis /api/v1/search (source=GDrive) + envoi a /trends/scenario.
+- API: /trends/scenario accepte docs_context, injecte dans prompt, retourne docs_used/docs_count.
+- app/main.py bascule vers admin_v2; script index_existing_documents corrige (embed_text).
+- README semantic search: note production 384D.
+- MCP Context7 installe (devtools/context7) et configure dans .mcp.json.
+- Validation locale: /admin/indexation-status = 34 docs, 46 chunks; /admin/test-search = 5 resultats; /api/v1/search source=GDrive = 4 resultats.
+
 **FIN CLAUDEMEMOIRE**
 
-*Dernière mise à jour : 2025-12-24 01:45 CET*
-*Status : ✅ PRODUCTION READY*
-*Leçon apprise : TOUJOURS DÉLÉGUER AUX AGENTS*
+*Derniere mise a jour : 2025-12-30*
+*Status : IMPLEMENTATION EN COURS*
+*Lecon apprise : TOUJOURS DELEGUER AUX AGENTS*

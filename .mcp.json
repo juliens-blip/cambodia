@@ -5,8 +5,7 @@
       "args": [
         "-y",
         "@upstash/context7-mcp"
-      ],
-      "description": "Long-term context storage for Perplexity analyses and detected price patterns"
+      ]
     },
     "fetch": {
       "command": "npx",
