@@ -95,12 +95,22 @@ async def index_documents_task():
                 chunks = chunk_text(text, chunk_size=500, overlap=50)
                 log_progress(f"  📄 [{i}/{len(documents)}] {title[:40]}... → {len(chunks)} chunks")
 
-                # Generate embeddings using BATCH method (more efficient)
-                try:
-                    embeddings = embedding_service.embed_batch(chunks, batch_size=16, show_progress=False)
-                except Exception as emb_error:
-                    log_progress(f"  ❌ Embedding error for {title[:30]}: {emb_error}")
+                # Generate embeddings ONE BY ONE (more reliable on low-memory Railway)
+                embeddings = []
+                for chunk_idx, chunk in enumerate(chunks):
+                    try:
+                        log_progress(f"    🔄 Embedding chunk {chunk_idx+1}/{len(chunks)}...")
+                        emb = embedding_service.embed_text(chunk)
+                        embeddings.append(emb)
+                    except Exception as emb_error:
+                        log_progress(f"    ❌ Chunk {chunk_idx+1} error: {emb_error}")
+                        continue
+
+                if not embeddings:
+                    log_progress(f"  ⚠️ No embeddings generated for {title[:30]}")
                     continue
+
+                log_progress(f"  ✅ Generated {len(embeddings)} embeddings")
 
                 # Prepare data for batch insert
                 for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
