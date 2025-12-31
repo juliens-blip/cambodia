@@ -2109,3 +2109,21 @@ Comment:
 Validation:
 - Local: indexation_status OK, test-search OK, search GDrive OK.
 - Prod (retour user): 35 documents indexes; 3 docs utilises cashew, 4 rubber.
+
+---
+
+## MAJ 2025-12-31 - Scenario Analysis filtrage documents
+
+Ce qui a ete fait:
+- UI: extraction mots cles depuis tweets/news/market, requete enrichie /api/v1/search.
+- Selection: top_k candidats (15), dedup par document_id, filtre qualite (longueur + ratio alphabetique), titres generiques exclus.
+- Ranking: similarite + bonus mots cles; top 5 retenus, docs_context reconstruit.
+- UI: liste docs avec source/similarite/mots cles + raisons generales (stats filtrage).
+- Debug: ajoute query, keywords, candidats vs selection.
+
+Comment:
+- keywords issus de twitter_summary, news_summary, market_summary, key_factors, top_tweets, news_articles.
+- selection par document_id avec meilleur chunk par similarite + qualite.
+
+Validation:
+- A faire apres redeploy / test UI Scenario Analysis.

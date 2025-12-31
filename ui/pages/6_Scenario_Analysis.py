@@ -4,6 +4,7 @@ import sys
 import os
 import httpx
 import json
+import re
 from datetime import datetime
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
@@ -21,9 +22,81 @@ t = get_all_translations(language)
 
 # API endpoints
 BASE_URL = f"{API_BASE_URL}/api/v1"
-DOCS_TOP_K = 5
+DOCS_CANDIDATES = 15
+DOCS_SELECTED = 5
 DOCS_THRESHOLD = 0.3
 DOCS_SOURCE = "GDrive"
+DOCS_MIN_WORDS = 40
+DOCS_MIN_CHARS = 200
+DOCS_MIN_ALPHA_RATIO = 0.25
+KEYWORDS_LIMIT = 12
+KEYWORD_BONUS = 0.02
+
+GENERIC_TITLE_TOKENS = [
+    "abbreviation",
+    "acronym",
+    "glossary",
+    "appendix",
+    "annex",
+    "table of contents",
+    "contents",
+    "index",
+    "test",
+    "sample",
+    "dummy"
+]
+
+DOMAIN_KEYWORDS = [
+    "price",
+    "prices",
+    "export",
+    "exports",
+    "market",
+    "demand",
+    "supply",
+    "yield",
+    "production",
+    "processing",
+    "factory",
+    "quality",
+    "tariff",
+    "trade",
+    "shipment",
+    "stock",
+    "inventory",
+    "plantation",
+    "farm",
+    "acreage",
+    "hectare",
+    "ton",
+    "tons",
+    "tonne",
+    "capacity",
+    "policy",
+    "subsidy",
+    "tax",
+    "ban",
+    "quota",
+    "logistics",
+    "weather",
+    "drought",
+    "rain",
+    "pest"
+]
+
+COMMODITY_KEYWORDS = {
+    "cashew": ["cashew", "anacard", "anacardium", "anacardier", "kernel", "nut"],
+    "rubber": ["rubber", "latex", "caoutchouc", "rss", "tsr", "sheet"]
+}
+
+STOPWORDS = {
+    "the", "and", "for", "with", "from", "that", "this", "are", "was", "were", "into",
+    "over", "under", "about", "after", "before", "between", "their", "there", "have",
+    "has", "had", "will", "would", "could", "should", "more", "most", "less", "also",
+    "les", "des", "avec", "pour", "dans", "sur", "par", "une", "un", "et", "ou", "mais",
+    "est", "sont", "ete", "etre", "avait", "ont", "ainsi", "comme", "sans", "plusieurs",
+    "tres", "trop", "chez", "leurs", "cette", "ces"
+}
 
 # Title
 st.title(f"📊 {t.get('scenario_title', 'Multi-Perspective Analysis')}")
@@ -81,7 +154,7 @@ def fetch_market_data(commodity: str, days: int):
     return None
 
 
-def fetch_historical_docs(commodity: str, query: str, limit: int = DOCS_TOP_K, threshold: float = DOCS_THRESHOLD):
+def fetch_historical_docs(commodity: str, query: str, limit: int = DOCS_CANDIDATES, threshold: float = DOCS_THRESHOLD):
     """Fetch relevant historical documents (no caching to avoid stale errors)."""
     try:
         with httpx.Client() as client:
@@ -141,17 +214,160 @@ def fetch_twitter_data(commodity: str):
     return None
 
 
-def build_docs_context(docs_data: dict, max_chunks: int = 5, max_chars: int = 1200) -> str:
-    """Build a compact docs context string from semantic search results."""
-    if not docs_data:
-        return ""
+def extract_keywords(twitter_data: dict, commodity: str, limit: int = KEYWORDS_LIMIT) -> list[str]:
+    """Extract keywords from twitter/news/market context."""
+    texts = []
 
-    results = docs_data.get("results", [])
+    if twitter_data:
+        for field in ["twitter_summary", "news_summary", "market_summary"]:
+            value = twitter_data.get(field)
+            if value:
+                texts.append(value)
+
+        key_factors = twitter_data.get("key_factors", [])
+        for factor in key_factors:
+            if isinstance(factor, str):
+                texts.append(factor)
+
+        top_tweets = twitter_data.get("top_tweets", [])
+        for tweet in top_tweets:
+            if isinstance(tweet, dict):
+                text = tweet.get("text", "")
+                if text:
+                    texts.append(text)
+            elif isinstance(tweet, str):
+                texts.append(tweet)
+
+        news_articles = twitter_data.get("news_articles", [])
+        for article in news_articles:
+            if isinstance(article, dict):
+                headline = article.get("headline")
+                if headline:
+                    texts.append(headline)
+
+    text_blob = " ".join(texts).lower()
+    tokens = re.findall(r"[\\w\\-]{3,}", text_blob, flags=re.UNICODE)
+
+    counts = {}
+    for token in tokens:
+        if token.isdigit() or token in STOPWORDS:
+            continue
+        counts[token] = counts.get(token, 0) + 1
+
+    for keyword in DOMAIN_KEYWORDS:
+        counts[keyword] = counts.get(keyword, 0) + 1
+
+    for keyword in COMMODITY_KEYWORDS.get(commodity, []):
+        counts[keyword] = counts.get(keyword, 0) + 2
+
+    keywords = sorted(counts.keys(), key=lambda k: (-counts[k], k))
+    return keywords[:limit]
+
+
+def build_search_query(commodity: str, keywords: list[str]) -> str:
+    base_query = f"{commodity} market trends prices analysis"
+    if not keywords:
+        return base_query
+    return f"{base_query} {' '.join(keywords)}"
+
+
+def is_generic_title(title: str) -> bool:
+    if not title:
+        return False
+    title_lower = title.lower()
+    return any(token in title_lower for token in GENERIC_TITLE_TOKENS)
+
+
+def is_text_quality(text: str) -> bool:
+    if not text:
+        return False
+    word_count = len(text.split())
+    char_count = len(text)
+    if word_count < DOCS_MIN_WORDS and char_count < DOCS_MIN_CHARS:
+        return False
+    alpha_count = sum(1 for ch in text if ch.isalpha())
+    alpha_ratio = alpha_count / max(1, char_count)
+    return alpha_ratio >= DOCS_MIN_ALPHA_RATIO
+
+
+def score_document(result: dict, keywords: list[str]) -> tuple[float, int]:
+    similarity = result.get("similarity", 0.0)
+    metadata = result.get("metadata", {})
+    title = metadata.get("title", "")
+    text = result.get("chunk_text", "")
+    combined = f"{title} {text}".lower()
+
+    keyword_hits = sum(1 for kw in keywords if kw in combined)
+    bonus = min(0.2, keyword_hits * KEYWORD_BONUS)
+    return similarity + bonus, keyword_hits
+
+
+def select_documents(docs_data: dict, keywords: list[str]) -> tuple[list[dict], dict]:
+    results = docs_data.get("results", []) if docs_data else []
+    stats = {
+        "candidate_count": len(results),
+        "deduped_count": 0,
+        "duplicates_removed": 0,
+        "filtered_quality": 0,
+        "filtered_title": 0,
+        "filtered_similarity": 0,
+        "selected_count": 0
+    }
+
+    if not results:
+        return [], stats
+
+    grouped = {}
+    for result in results:
+        doc_id = result.get("document_id")
+        if not doc_id:
+            continue
+        grouped.setdefault(doc_id, []).append(result)
+
+    stats["deduped_count"] = len(grouped)
+    stats["duplicates_removed"] = max(0, stats["candidate_count"] - stats["deduped_count"])
+
+    candidates = []
+    for _, chunks in grouped.items():
+        metadata = chunks[0].get("metadata", {})
+        title = metadata.get("title", "")
+
+        if is_generic_title(title):
+            stats["filtered_title"] += 1
+            continue
+
+        chosen = None
+        for chunk in sorted(chunks, key=lambda r: r.get("similarity", 0.0), reverse=True):
+            if is_text_quality(chunk.get("chunk_text", "")):
+                chosen = chunk
+                break
+
+        if not chosen:
+            stats["filtered_quality"] += 1
+            continue
+
+        similarity = chosen.get("similarity", 0.0)
+        if similarity < DOCS_THRESHOLD:
+            stats["filtered_similarity"] += 1
+            continue
+
+        score, keyword_hits = score_document(chosen, keywords)
+        chosen["_score"] = score
+        chosen["_keyword_hits"] = keyword_hits
+        candidates.append(chosen)
+
+    selected = sorted(candidates, key=lambda r: r.get("_score", 0.0), reverse=True)[:DOCS_SELECTED]
+    stats["selected_count"] = len(selected)
+    return selected, stats
+
+
+def build_docs_context(results: list[dict], max_chars: int = 1200) -> str:
+    """Build a compact docs context string from semantic search results."""
     if not results:
         return ""
 
     context_parts = []
-    for i, result in enumerate(results[:max_chunks], 1):
+    for i, result in enumerate(results[:DOCS_SELECTED], 1):
         metadata = result.get("metadata", {})
         source = metadata.get("source", "Unknown")
         title = metadata.get("title", "Untitled")
@@ -226,7 +442,7 @@ def generate_scenario_analysis(commodity: str, scenario_type: str, market_data: 
         }
 
 
-def display_data_sources(market_data, docs_data, twitter_data):
+def display_data_sources(market_data, docs_selected_count: int, twitter_data):
     """Display data sources summary."""
     st.markdown(f"### 📊 {t.get('scenario_data_sources', 'Data Sources')}")
 
@@ -240,7 +456,7 @@ def display_data_sources(market_data, docs_data, twitter_data):
         )
 
     with col2:
-        doc_count = len(docs_data.get('results', [])) if docs_data else 0
+        doc_count = docs_selected_count if isinstance(docs_selected_count, int) else 0
         st.metric(
             t.get('scenario_historical_docs', 'Historical Documents'),
             f"{doc_count} {t.get('scenario_doc_count', 'documents analyzed')}"
@@ -254,34 +470,25 @@ def display_data_sources(market_data, docs_data, twitter_data):
         )
 
 
-def display_documents_used(docs_data, commodity: str, top_k: int, threshold: float):
+def display_documents_used(results: list[dict], selection_stats: dict, commodity: str, keywords: list[str], top_k: int, threshold: float):
     """Display documents used and general exclusion reasons."""
     if language == "fr":
         title = "Documents utilises"
         no_docs = "Aucun document utilise pour cette analyse."
         reasons_title = "Pourquoi les autres documents ne sont pas retenus"
-        reasons = [
-            f"Le moteur ne retient que les top {top_k} documents les plus similaires.",
-            f"Seuil de similarite applique: {threshold:.2f}.",
-            f"Filtre actif: source={DOCS_SOURCE} et commodity={commodity}.",
-            "Les documents non indexes ou incomplets ne peuvent pas etre proposes."
-        ]
+        reasons = []
         list_label = "Voir la liste des documents utilises"
     else:
         title = "Documents used"
         no_docs = "No documents were used for this analysis."
         reasons_title = "Why other documents were not selected"
-        reasons = [
-            f"Only the top {top_k} most similar documents are selected.",
-            f"Similarity threshold applied: {threshold:.2f}.",
-            f"Active filter: source={DOCS_SOURCE} and commodity={commodity}.",
-            "Unindexed or incomplete documents cannot be selected."
-        ]
+        reasons = []
         list_label = "View documents used"
+
+    keywords_preview = ", ".join(keywords[:6]) if keywords else ""
 
     st.markdown(f"### 📄 {title}")
 
-    results = docs_data.get("results", []) if docs_data else []
     if not results:
         st.info(no_docs)
     else:
@@ -289,12 +496,57 @@ def display_documents_used(docs_data, commodity: str, top_k: int, threshold: flo
             for r in results:
                 meta = r.get("metadata", {})
                 title_text = meta.get("title", "Untitled")
+                source = meta.get("source", "Unknown")
                 url = meta.get("url")
                 similarity = r.get("similarity", 0.0)
-                if url:
-                    st.markdown(f"- [{title_text}]({url}) — similarity {similarity:.2f}")
+                keyword_hits = r.get("_keyword_hits", 0)
+                if language == "fr":
+                    details = f"source: {source}, similarite {similarity:.2f}, mots cles: {keyword_hits}"
                 else:
-                    st.markdown(f"- {title_text} — similarity {similarity:.2f}")
+                    details = f"source: {source}, similarity {similarity:.2f}, keyword hits: {keyword_hits}"
+                if url:
+                    st.markdown(f"- [{title_text}]({url}) - {details}")
+                else:
+                    st.markdown(f"- {title_text} - {details}")
+
+    stats = selection_stats or {}
+    candidate_count = stats.get("candidate_count", 0)
+    deduped_count = stats.get("deduped_count", 0)
+    duplicates_removed = stats.get("duplicates_removed", 0)
+    filtered_quality = stats.get("filtered_quality", 0)
+    filtered_title = stats.get("filtered_title", 0)
+    filtered_similarity = stats.get("filtered_similarity", 0)
+
+    if language == "fr":
+        reasons.extend([
+            f"{candidate_count} chunks candidats recuperes, {deduped_count} documents uniques.",
+            f"{duplicates_removed} doublons elimines par document_id.",
+            f"{filtered_similarity} exclus pour similarite sous le seuil ({threshold:.2f}).",
+            f"{filtered_quality} exclus pour qualite insuffisante (OCR bruit/texte court).",
+            f"{filtered_title} exclus pour titres generiques.",
+            f"Selection finale: top {top_k} documents.",
+            f"Filtre actif: source={DOCS_SOURCE} et commodity={commodity}."
+        ])
+        if keywords_preview:
+            reasons.append(
+                "Classement base sur similarite + recouvrement mots cles (tweets/news/market): "
+                f"{keywords_preview}."
+            )
+    else:
+        reasons.extend([
+            f"{candidate_count} candidate chunks, {deduped_count} unique documents.",
+            f"{duplicates_removed} duplicates removed by document_id.",
+            f"{filtered_similarity} excluded below similarity threshold ({threshold:.2f}).",
+            f"{filtered_quality} excluded for low quality (OCR noise/short text).",
+            f"{filtered_title} excluded for generic titles.",
+            f"Final selection: top {top_k} documents.",
+            f"Active filter: source={DOCS_SOURCE} and commodity={commodity}."
+        ])
+        if keywords_preview:
+            reasons.append(
+                "Ranking uses similarity + keyword overlap (tweets/news/market): "
+                f"{keywords_preview}."
+            )
 
     st.markdown(f"**{reasons_title}:**")
     for reason in reasons:
@@ -383,13 +635,15 @@ try:
         # Fetch market data
         market_data = fetch_market_data(commodity, history_days)
 
-        # Fetch historical documents
-        search_query = f"{commodity} market trends prices analysis"
-        docs_data = fetch_historical_docs(commodity, search_query, limit=DOCS_TOP_K, threshold=DOCS_THRESHOLD)
-        docs_context = build_docs_context(docs_data)
-
         # Fetch Twitter data
         twitter_data = fetch_twitter_data(commodity)
+        keywords = extract_keywords(twitter_data, commodity, limit=KEYWORDS_LIMIT)
+        search_query = build_search_query(commodity, keywords)
+
+        # Fetch historical documents
+        docs_data = fetch_historical_docs(commodity, search_query, limit=DOCS_CANDIDATES, threshold=DOCS_THRESHOLD)
+        docs_selected, selection_stats = select_documents(docs_data, keywords)
+        docs_context = build_docs_context(docs_selected)
 
     # Debug display if enabled
     if show_debug:
@@ -403,14 +657,18 @@ try:
                 st.sidebar.write(f"First tweet: @{top_tweets[0].get('username', '?')}")
         else:
             st.sidebar.error("❌ No Twitter data")
+        st.sidebar.write(f"search_query: {search_query}")
+        if keywords:
+            st.sidebar.write("keywords: " + ", ".join(keywords[:8]))
+        st.sidebar.write(f"docs_selected: {len(docs_selected)} / {selection_stats.get('candidate_count', 0)} candidates")
 
     # Display data sources summary
-    display_data_sources(market_data, docs_data, twitter_data)
+    display_data_sources(market_data, len(docs_selected), twitter_data)
 
     st.markdown("---")
 
     # Display documents used
-    display_documents_used(docs_data, commodity, DOCS_TOP_K, DOCS_THRESHOLD)
+    display_documents_used(docs_selected, selection_stats, commodity, keywords, DOCS_SELECTED, DOCS_THRESHOLD)
 
     st.markdown("---")
 

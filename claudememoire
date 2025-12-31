@@ -1076,8 +1076,18 @@ Blocages :
 - Prod (retour user): 35 documents indexes; 3 docs utilises pour cashew, 4 pour rubber.
 - UI Scenario Analysis: ajout section "Documents utilises" + raisons generales d'exclusion.
 
+---
+
+## MAJ SESSION 2025-12-31 - Scenario Analysis filtrage documents
+
+- UI: extraction mots cles (tweets/news/market) + requete enrichie /api/v1/search.
+- Selection: top_k candidats, dedup document_id, filtre qualite (longueur + ratio alphabetique), titres generiques exclus.
+- Ranking: similarite + bonus mots cles; top 5 retenus pour docs_context.
+- UI: liste docs avec source/similarite/mots cles + raisons generales (stats filtrage).
+- Debug: affiche query, keywords, candidats vs selection.
+
 **FIN CLAUDEMEMOIRE**
 
-*Derniere mise a jour : 2025-12-30*
-*Status : IMPLEMENTATION EN COURS*
+*Derniere mise a jour : 2025-12-31*
+*Status : IMPLEMENTATION TERMINEE*
 *Lecon apprise : TOUJOURS DELEGUER AUX AGENTS*
