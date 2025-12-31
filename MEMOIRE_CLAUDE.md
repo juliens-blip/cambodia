@@ -2127,3 +2127,20 @@ Comment:
 
 Validation:
 - A faire apres redeploy / test UI Scenario Analysis.
+
+---
+
+## MAJ 2025-12-31 - MEF realtime macro indicateurs
+
+Ce qui a ete fait:
+- UI Market Trends: section macro avec taux USD/KHR, resume CSX, index CSX.
+- UI Scenario Analysis: fetch MEF realtime + macro_context, section macro, envoi a /trends/scenario.
+- API /trends/scenario: nouveau param macro_context et bloc MACRO INDICATORS dans le prompt.
+- i18n: ajout labels macro_* EN/FR.
+
+Comment:
+- Endpoints MEF: /realtime-api/exchange-rate, /csx-summary, /csx-index (cache 1h).
+- macro_context compact injecte entre docs_context et market data.
+
+Validation:
+- A faire apres redeploy / test UI Market Trends + Scenario Analysis.

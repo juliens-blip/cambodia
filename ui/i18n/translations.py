@@ -84,6 +84,15 @@ TRANSLATIONS = {
         "scenario_short_term": "Short term (1-3 months)",
         "scenario_medium_term": "Medium term (3-6 months)",
         "scenario_long_term": "Long term (6-12 months)",
+        "macro_indicators": "Macro Indicators",
+        "macro_exchange_rate": "USD/KHR Exchange Rate",
+        "macro_csx_summary": "CSX Summary",
+        "macro_csx_index": "CSX Index",
+        "macro_up": "Up",
+        "macro_down": "Down",
+        "macro_flat": "Flat",
+        "macro_volume": "Volume",
+        "macro_value": "Value",
 
         # Common
         "loading": "Loading...",
@@ -354,6 +363,15 @@ TRANSLATIONS = {
         "scenario_short_term": "Court terme (1-3 mois)",
         "scenario_medium_term": "Moyen terme (3-6 mois)",
         "scenario_long_term": "Long terme (6-12 mois)",
+        "macro_indicators": "Indicateurs macro",
+        "macro_exchange_rate": "Taux USD/KHR",
+        "macro_csx_summary": "Resume CSX",
+        "macro_csx_index": "Indice CSX",
+        "macro_up": "Hausse",
+        "macro_down": "Baisse",
+        "macro_flat": "Stable",
+        "macro_volume": "Volume",
+        "macro_value": "Valeur",
 
         # Common
         "loading": "Chargement...",

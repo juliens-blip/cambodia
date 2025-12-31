@@ -277,7 +277,8 @@ async def generate_scenario_analysis(
     scenario_type: str = Query(default="realistic", regex="^(pessimistic|realistic|optimistic)$"),
     price_data: Optional[dict] = Body(default=None),
     twitter_data: Optional[dict] = Body(default=None),
-    docs_context: Optional[str] = Body(default=None)
+    docs_context: Optional[str] = Body(default=None),
+    macro_context: Optional[str] = Body(default=None)
 ):
     """
     Generate AI scenario analysis for a commodity.
@@ -287,6 +288,7 @@ async def generate_scenario_analysis(
     - **price_data**: Optional current price data (from /public/prices)
     - **twitter_data**: Optional Twitter sentiment data (from /latest)
     - **docs_context**: Optional semantic search context (GDrive docs)
+    - **macro_context**: Optional macro indicators context (MEF/NBC/CSX)
     
     Uses Perplexity AI to generate market scenario analysis.
     Cost: ~$0.005 per analysis.
@@ -324,12 +326,22 @@ async def generate_scenario_analysis(
                 "---\n\n"
                 "Use the local documents as primary sources and cite them explicitly.\n\n"
             )
+
+        macro_used = bool(macro_context and macro_context.strip())
+        macro_block = ""
+        if macro_used:
+            macro_block = (
+                "MACRO INDICATORS (MEF/NBC/CSX):\n"
+                f"{macro_context}\n\n"
+                "---\n\n"
+                "Use macro indicators as supporting context for the analysis.\n\n"
+            )
         
         # Build prompt based on scenario type
         scenario_prompts = {
             'pessimistic': f"""As a conservative market analyst, provide a PESSIMISTIC (bearish) analysis for {commodity} market.
 
-{docs_block}Current market data:
+{docs_block}{macro_block}Current market data:
 - Current price: ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
@@ -344,7 +356,7 @@ Be realistic but cautious. Keep response under 300 words.""",
 
             'realistic': f"""As a balanced market analyst, provide a REALISTIC (neutral) analysis for {commodity} market.
 
-{docs_block}Current market data:
+{docs_block}{macro_block}Current market data:
 - Current price: ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
@@ -359,7 +371,7 @@ Be objective and data-driven. Keep response under 300 words.""",
 
             'optimistic': f"""As an opportunity-focused market analyst, provide an OPTIMISTIC (bullish) analysis for {commodity} market.
 
-{docs_block}Current market data:
+{docs_block}{macro_block}Current market data:
 - Current price: ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
@@ -388,7 +400,8 @@ Be realistic but optimistic. Keep response under 300 words."""
                 "price_change_pct": price_change
             },
             "docs_used": docs_used,
-            "docs_count": docs_count
+            "docs_count": docs_count,
+            "macro_used": macro_used
         }
         
     except Exception as e:

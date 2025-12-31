@@ -23,6 +23,7 @@ t = get_all_translations(language)
 
 # API endpoints
 BASE_URL = TRENDS_URL
+MEF_REALTIME_BASE = "https://data.mef.gov.kh/api/v1/realtime-api"
 
 # Title
 st.title(f"📈 {t.get('trends_title', 'Market Trends Analysis')}")
@@ -50,6 +51,184 @@ if auto_refresh:
     import time
     time.sleep(60)
     st.rerun()
+
+
+def parse_number(value):
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).replace(",", "")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def format_number(value, decimals: int = 0) -> str:
+    if value is None:
+        return "N/A"
+    if decimals == 0:
+        return f"{value:,.0f}"
+    return f"{value:,.{decimals}f}"
+
+
+@st.cache_data(ttl=3600)
+def fetch_exchange_rate(currency_id: str = "USD"):
+    """Fetch exchange rate from MEF realtime API."""
+    try:
+        with httpx.Client() as client:
+            url = f"{MEF_REALTIME_BASE}/exchange-rate?currency_id={currency_id}"
+            response = client.get(url, timeout=15.0)
+            if response.status_code == 200:
+                return response.json().get("data")
+    except Exception as e:
+        print(f"[DEBUG] MEF exchange rate error: {e}")
+    return None
+
+
+@st.cache_data(ttl=3600)
+def fetch_csx_summary():
+    """Fetch CSX summary from MEF realtime API."""
+    try:
+        with httpx.Client() as client:
+            url = f"{MEF_REALTIME_BASE}/csx-summary"
+            response = client.get(url, timeout=15.0)
+            if response.status_code == 200:
+                return response.json().get("data", [])
+    except Exception as e:
+        print(f"[DEBUG] MEF CSX summary error: {e}")
+    return []
+
+
+@st.cache_data(ttl=3600)
+def fetch_csx_index():
+    """Fetch CSX index from MEF realtime API."""
+    try:
+        with httpx.Client() as client:
+            url = f"{MEF_REALTIME_BASE}/csx-index"
+            response = client.get(url, timeout=15.0)
+            if response.status_code == 200:
+                return response.json().get("data")
+    except Exception as e:
+        print(f"[DEBUG] MEF CSX index error: {e}")
+    return None
+
+
+def summarize_csx_summary(summary_rows):
+    stats = {
+        "count": 0,
+        "up": 0,
+        "down": 0,
+        "flat": 0,
+        "total_value": 0.0,
+        "total_volume": 0.0
+    }
+
+    if not summary_rows:
+        return stats
+
+    for row in summary_rows:
+        status = (row or {}).get("change_up_down")
+        if status == "up":
+            stats["up"] += 1
+        elif status == "down":
+            stats["down"] += 1
+        else:
+            stats["flat"] += 1
+
+        value = parse_number((row or {}).get("value"))
+        if value is not None:
+            stats["total_value"] += value
+
+        volume = parse_number((row or {}).get("volume"))
+        if volume is not None:
+            stats["total_volume"] += volume
+
+        stats["count"] += 1
+
+    return stats
+
+
+def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
+    """Display macro indicators from MEF realtime API."""
+    st.markdown(f"### {t.get('macro_indicators', 'Macro Indicators')}")
+    st.caption(f"{t.get('trends_source', 'Source')}: MEF/NBC/CSX")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        rate_value = "N/A"
+        bid = None
+        ask = None
+        valid_date = None
+        if exchange_rate:
+            avg = parse_number(exchange_rate.get("average"))
+            bid = parse_number(exchange_rate.get("bid"))
+            ask = parse_number(exchange_rate.get("ask"))
+            valid_date = exchange_rate.get("valid_date")
+            if avg is not None:
+                rate_value = f"{format_number(avg)} KHR"
+            elif bid is not None:
+                rate_value = f"{format_number(bid)} KHR"
+
+        st.metric(
+            t.get('macro_exchange_rate', 'USD/KHR Exchange Rate'),
+            rate_value
+        )
+        if bid is not None or ask is not None or valid_date:
+            bid_text = format_number(bid)
+            ask_text = format_number(ask)
+            date_text = valid_date or "N/A"
+            st.caption(f"Bid {bid_text} | Ask {ask_text} | {date_text}")
+
+    with col2:
+        summary_value = "N/A"
+        total_value = None
+        total_volume = None
+        if csx_summary_stats and csx_summary_stats.get("count", 0) > 0:
+            up = csx_summary_stats.get("up", 0)
+            down = csx_summary_stats.get("down", 0)
+            flat = csx_summary_stats.get("flat", 0)
+            summary_value = (
+                f"{up} {t.get('macro_up', 'Up')} / "
+                f"{down} {t.get('macro_down', 'Down')} / "
+                f"{flat} {t.get('macro_flat', 'Flat')}"
+            )
+            total_value = csx_summary_stats.get("total_value")
+            total_volume = csx_summary_stats.get("total_volume")
+
+        st.metric(
+            t.get('macro_csx_summary', 'CSX Summary'),
+            summary_value
+        )
+        if total_value is not None or total_volume is not None:
+            value_text = format_number(total_value)
+            volume_text = format_number(total_volume)
+            st.caption(
+                f"{t.get('macro_value', 'Value')}: {value_text} KHR | "
+                f"{t.get('macro_volume', 'Volume')}: {volume_text}"
+            )
+
+    with col3:
+        index_value = None
+        change_pct = None
+        if csx_index:
+            index_value = parse_number(csx_index.get("value"))
+            change_pct = parse_number(csx_index.get("change_percent"))
+
+        if index_value is not None:
+            delta = f"{change_pct:+.2f}%" if change_pct is not None else None
+            st.metric(
+                t.get('macro_csx_index', 'CSX Index'),
+                format_number(index_value, decimals=2),
+                delta=delta
+            )
+        else:
+            st.metric(
+                t.get('macro_csx_index', 'CSX Index'),
+                "N/A"
+            )
 
 # Main content
 try:
@@ -120,6 +299,16 @@ try:
                     f"{confidence:.0%}",
                     delta=None
                 )
+
+            st.markdown("---")
+
+            # Macro Indicators (MEF/NBC/CSX)
+            exchange_rate = fetch_exchange_rate()
+            csx_summary = fetch_csx_summary()
+            csx_index = fetch_csx_index()
+            csx_summary_stats = summarize_csx_summary(csx_summary)
+
+            display_macro_indicators(exchange_rate, csx_summary_stats, csx_index)
 
             st.markdown("---")
 

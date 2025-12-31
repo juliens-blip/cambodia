@@ -1086,6 +1086,15 @@ Blocages :
 - UI: liste docs avec source/similarite/mots cles + raisons generales (stats filtrage).
 - Debug: affiche query, keywords, candidats vs selection.
 
+---
+
+## MAJ SESSION 2025-12-31 - MEF realtime macro indicateurs
+
+- UI Market Trends: ajout section macro (USD/KHR, CSX summary, CSX index).
+- UI Scenario Analysis: fetch MEF realtime + macro_context, section macro, envoi a /trends/scenario.
+- API /trends/scenario: accepte macro_context et injecte bloc MACRO INDICATORS dans le prompt.
+- i18n: nouveaux labels macro_* EN/FR.
+
 **FIN CLAUDEMEMOIRE**
 
 *Derniere mise a jour : 2025-12-31*

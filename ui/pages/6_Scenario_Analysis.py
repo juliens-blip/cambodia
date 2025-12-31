@@ -22,6 +22,7 @@ t = get_all_translations(language)
 
 # API endpoints
 BASE_URL = f"{API_BASE_URL}/api/v1"
+MEF_REALTIME_BASE = "https://data.mef.gov.kh/api/v1/realtime-api"
 DOCS_CANDIDATES = 15
 DOCS_SELECTED = 5
 DOCS_THRESHOLD = 0.3
@@ -214,6 +215,142 @@ def fetch_twitter_data(commodity: str):
     return None
 
 
+def parse_number(value):
+    if value is None:
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).replace(",", "")
+    try:
+        return float(text)
+    except ValueError:
+        return None
+
+
+def format_number(value, decimals: int = 0) -> str:
+    if value is None:
+        return "N/A"
+    if decimals == 0:
+        return f"{value:,.0f}"
+    return f"{value:,.{decimals}f}"
+
+
+@st.cache_data(ttl=3600)
+def fetch_exchange_rate(currency_id: str = "USD"):
+    """Fetch exchange rate from MEF realtime API."""
+    try:
+        with httpx.Client() as client:
+            url = f"{MEF_REALTIME_BASE}/exchange-rate?currency_id={currency_id}"
+            response = client.get(url, timeout=15.0)
+            if response.status_code == 200:
+                return response.json().get("data")
+    except Exception as e:
+        print(f"[DEBUG] MEF exchange rate error: {e}")
+    return None
+
+
+@st.cache_data(ttl=3600)
+def fetch_csx_summary():
+    """Fetch CSX summary from MEF realtime API."""
+    try:
+        with httpx.Client() as client:
+            url = f"{MEF_REALTIME_BASE}/csx-summary"
+            response = client.get(url, timeout=15.0)
+            if response.status_code == 200:
+                return response.json().get("data", [])
+    except Exception as e:
+        print(f"[DEBUG] MEF CSX summary error: {e}")
+    return []
+
+
+@st.cache_data(ttl=3600)
+def fetch_csx_index():
+    """Fetch CSX index from MEF realtime API."""
+    try:
+        with httpx.Client() as client:
+            url = f"{MEF_REALTIME_BASE}/csx-index"
+            response = client.get(url, timeout=15.0)
+            if response.status_code == 200:
+                return response.json().get("data")
+    except Exception as e:
+        print(f"[DEBUG] MEF CSX index error: {e}")
+    return None
+
+
+def summarize_csx_summary(summary_rows):
+    stats = {
+        "count": 0,
+        "up": 0,
+        "down": 0,
+        "flat": 0,
+        "total_value": 0.0,
+        "total_volume": 0.0
+    }
+
+    if not summary_rows:
+        return stats
+
+    for row in summary_rows:
+        status = (row or {}).get("change_up_down")
+        if status == "up":
+            stats["up"] += 1
+        elif status == "down":
+            stats["down"] += 1
+        else:
+            stats["flat"] += 1
+
+        value = parse_number((row or {}).get("value"))
+        if value is not None:
+            stats["total_value"] += value
+
+        volume = parse_number((row or {}).get("volume"))
+        if volume is not None:
+            stats["total_volume"] += volume
+
+        stats["count"] += 1
+
+    return stats
+
+
+def build_macro_context(exchange_rate, csx_summary_stats, csx_index):
+    parts = []
+
+    if exchange_rate:
+        avg_value = parse_number(exchange_rate.get("average"))
+        bid_value = parse_number(exchange_rate.get("bid"))
+        ask_value = parse_number(exchange_rate.get("ask"))
+        if avg_value is not None or bid_value is not None or ask_value is not None:
+            avg = format_number(avg_value)
+            bid = format_number(bid_value)
+            ask = format_number(ask_value)
+            valid_date = exchange_rate.get("valid_date") or "N/A"
+            parts.append(
+                f"USD/KHR exchange rate (avg {avg}, bid {bid}, ask {ask}) on {valid_date}."
+            )
+
+    if csx_summary_stats and csx_summary_stats.get("count", 0) > 0:
+        up = csx_summary_stats.get("up", 0)
+        down = csx_summary_stats.get("down", 0)
+        flat = csx_summary_stats.get("flat", 0)
+        total_value = format_number(csx_summary_stats.get("total_value"))
+        total_volume = format_number(csx_summary_stats.get("total_volume"))
+        parts.append(
+            "CSX summary: "
+            f"{up} up, {down} down, {flat} flat; "
+            f"total value {total_value} KHR; total volume {total_volume}."
+        )
+
+    if csx_index:
+        index_value = parse_number(csx_index.get("value"))
+        change_pct = parse_number(csx_index.get("change_percent"))
+        if index_value is not None or change_pct is not None:
+            value_text = format_number(index_value, decimals=2)
+            change_text = f"{change_pct:+.2f}%" if change_pct is not None else "N/A"
+            parts.append(f"CSX index: {value_text} (change {change_text}).")
+
+    return "\n".join(parts).strip()
+
+
 def extract_keywords(twitter_data: dict, commodity: str, limit: int = KEYWORDS_LIMIT) -> list[str]:
     """Extract keywords from twitter/news/market context."""
     texts = []
@@ -384,7 +521,14 @@ def build_docs_context(results: list[dict], max_chars: int = 1200) -> str:
 
 
 @st.cache_data(ttl=3600)
-def generate_scenario_analysis(commodity: str, scenario_type: str, market_data: dict, docs_context: str, twitter_data: dict):
+def generate_scenario_analysis(
+    commodity: str,
+    scenario_type: str,
+    market_data: dict,
+    docs_context: str,
+    twitter_data: dict,
+    macro_context: str
+):
     """
     Generate scenario analysis using the trends API endpoint.
 
@@ -404,6 +548,8 @@ def generate_scenario_analysis(commodity: str, scenario_type: str, market_data: 
                 json_data["twitter_data"] = twitter_data
             if docs_context:
                 json_data["docs_context"] = docs_context
+            if macro_context:
+                json_data["macro_context"] = macro_context
             
             # Call the API (can take 30-60 seconds for Perplexity)
             response = client.post(url, params=params, json=json_data if json_data else None, timeout=120.0)
@@ -468,6 +614,87 @@ def display_data_sources(market_data, docs_selected_count: int, twitter_data):
             t.get('scenario_twitter_news', 'Twitter/X News'),
             f"{tweet_count} {t.get('scenario_tweet_count', 'recent tweets')}"
         )
+
+
+def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
+    """Display macro indicators from MEF realtime API."""
+    st.markdown(f"### {t.get('macro_indicators', 'Macro Indicators')}")
+    st.caption(f"{t.get('trends_source', 'Source')}: MEF/NBC/CSX")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        rate_value = "N/A"
+        bid = None
+        ask = None
+        valid_date = None
+        if exchange_rate:
+            avg = parse_number(exchange_rate.get("average"))
+            bid = parse_number(exchange_rate.get("bid"))
+            ask = parse_number(exchange_rate.get("ask"))
+            valid_date = exchange_rate.get("valid_date")
+            if avg is not None:
+                rate_value = f"{format_number(avg)} KHR"
+            elif bid is not None:
+                rate_value = f"{format_number(bid)} KHR"
+
+        st.metric(
+            t.get('macro_exchange_rate', 'USD/KHR Exchange Rate'),
+            rate_value
+        )
+        if bid is not None or ask is not None or valid_date:
+            bid_text = format_number(bid)
+            ask_text = format_number(ask)
+            date_text = valid_date or "N/A"
+            st.caption(f"Bid {bid_text} | Ask {ask_text} | {date_text}")
+
+    with col2:
+        summary_value = "N/A"
+        total_value = None
+        total_volume = None
+        if csx_summary_stats and csx_summary_stats.get("count", 0) > 0:
+            up = csx_summary_stats.get("up", 0)
+            down = csx_summary_stats.get("down", 0)
+            flat = csx_summary_stats.get("flat", 0)
+            summary_value = (
+                f"{up} {t.get('macro_up', 'Up')} / "
+                f"{down} {t.get('macro_down', 'Down')} / "
+                f"{flat} {t.get('macro_flat', 'Flat')}"
+            )
+            total_value = csx_summary_stats.get("total_value")
+            total_volume = csx_summary_stats.get("total_volume")
+
+        st.metric(
+            t.get('macro_csx_summary', 'CSX Summary'),
+            summary_value
+        )
+        if total_value is not None or total_volume is not None:
+            value_text = format_number(total_value)
+            volume_text = format_number(total_volume)
+            st.caption(
+                f"{t.get('macro_value', 'Value')}: {value_text} KHR | "
+                f"{t.get('macro_volume', 'Volume')}: {volume_text}"
+            )
+
+    with col3:
+        index_value = None
+        change_pct = None
+        if csx_index:
+            index_value = parse_number(csx_index.get("value"))
+            change_pct = parse_number(csx_index.get("change_percent"))
+
+        if index_value is not None:
+            delta = f"{change_pct:+.2f}%" if change_pct is not None else None
+            st.metric(
+                t.get('macro_csx_index', 'CSX Index'),
+                format_number(index_value, decimals=2),
+                delta=delta
+            )
+        else:
+            st.metric(
+                t.get('macro_csx_index', 'CSX Index'),
+                "N/A"
+            )
 
 
 def display_documents_used(results: list[dict], selection_stats: dict, commodity: str, keywords: list[str], top_k: int, threshold: float):
@@ -640,6 +867,13 @@ try:
         keywords = extract_keywords(twitter_data, commodity, limit=KEYWORDS_LIMIT)
         search_query = build_search_query(commodity, keywords)
 
+        # Fetch macro indicators (MEF/NBC/CSX)
+        exchange_rate = fetch_exchange_rate()
+        csx_summary = fetch_csx_summary()
+        csx_index = fetch_csx_index()
+        csx_summary_stats = summarize_csx_summary(csx_summary)
+        macro_context = build_macro_context(exchange_rate, csx_summary_stats, csx_index)
+
         # Fetch historical documents
         docs_data = fetch_historical_docs(commodity, search_query, limit=DOCS_CANDIDATES, threshold=DOCS_THRESHOLD)
         docs_selected, selection_stats = select_documents(docs_data, keywords)
@@ -661,9 +895,16 @@ try:
         if keywords:
             st.sidebar.write("keywords: " + ", ".join(keywords[:8]))
         st.sidebar.write(f"docs_selected: {len(docs_selected)} / {selection_stats.get('candidate_count', 0)} candidates")
+        if macro_context:
+            st.sidebar.write(f"macro_context: {macro_context[:160]}...")
 
     # Display data sources summary
     display_data_sources(market_data, len(docs_selected), twitter_data)
+
+    st.markdown("---")
+
+    # Display macro indicators
+    display_macro_indicators(exchange_rate, csx_summary_stats, csx_index)
 
     st.markdown("---")
 
@@ -689,7 +930,14 @@ try:
         st.caption(t.get('scenario_based_on', 'Based on') + f": {t.get('scenario_market_data', 'Market data')}, {t.get('scenario_historical_docs', 'Historical documents')}, {t.get('scenario_twitter_news', 'Twitter/X news')}")
 
         with st.spinner(t.get('scenario_generating', 'Generating analysis...')):
-            pessimistic = generate_scenario_analysis(commodity, 'pessimistic', market_data, docs_context, twitter_data)
+            pessimistic = generate_scenario_analysis(
+                commodity,
+                'pessimistic',
+                market_data,
+                docs_context,
+                twitter_data,
+                macro_context
+            )
 
         display_scenario_analysis('pessimistic', pessimistic, '#ff4b4b')
 
@@ -698,7 +946,14 @@ try:
         st.caption(t.get('scenario_based_on', 'Based on') + f": {t.get('scenario_market_data', 'Market data')}, {t.get('scenario_historical_docs', 'Historical documents')}, {t.get('scenario_twitter_news', 'Twitter/X news')}")
 
         with st.spinner(t.get('scenario_generating', 'Generating analysis...')):
-            realistic = generate_scenario_analysis(commodity, 'realistic', market_data, docs_context, twitter_data)
+            realistic = generate_scenario_analysis(
+                commodity,
+                'realistic',
+                market_data,
+                docs_context,
+                twitter_data,
+                macro_context
+            )
 
         display_scenario_analysis('realistic', realistic, '#ffa500')
 
@@ -707,7 +962,14 @@ try:
         st.caption(t.get('scenario_based_on', 'Based on') + f": {t.get('scenario_market_data', 'Market data')}, {t.get('scenario_historical_docs', 'Historical documents')}, {t.get('scenario_twitter_news', 'Twitter/X news')}")
 
         with st.spinner(t.get('scenario_generating', 'Generating analysis...')):
-            optimistic = generate_scenario_analysis(commodity, 'optimistic', market_data, docs_context, twitter_data)
+            optimistic = generate_scenario_analysis(
+                commodity,
+                'optimistic',
+                market_data,
+                docs_context,
+                twitter_data,
+                macro_context
+            )
 
         display_scenario_analysis('optimistic', optimistic, '#00cc66')
 
