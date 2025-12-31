@@ -52,13 +52,6 @@ if auto_refresh:
     time.sleep(60)
     st.rerun()
 
-if st.sidebar.button("Refresh Macro"):
-    fetch_exchange_rate.clear()
-    fetch_csx_summary.clear()
-    fetch_csx_index.clear()
-    st.sidebar.success("Macro cache cleared.")
-
-
 def parse_number(value):
     if value is None:
         return None
@@ -237,6 +230,13 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
                 t.get('macro_csx_index', 'CSX Index'),
                 "N/A"
             )
+
+# Sidebar refresh for macro indicators (after function definitions)
+if st.sidebar.button("Refresh Macro"):
+    fetch_exchange_rate.clear()
+    fetch_csx_summary.clear()
+    fetch_csx_index.clear()
+    st.sidebar.success("Macro cache cleared.")
 
 # Main content
 try:

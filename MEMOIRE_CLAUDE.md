@@ -2153,6 +2153,7 @@ Ce qui a ete fait:
 - TTL MEF reduit a 15 min (cache UI) pour eviter N/A persistants.
 - Bouton "Refresh Macro" ajoute (purge cache MEF seulement).
 - Message d info si macro indisponible.
+- Fix: bouton Refresh Macro deplace apres definitions pour eviter NameError.
 
 Validation:
 - A faire apres redeploy / test UI Market Trends + Scenario Analysis.

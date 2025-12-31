@@ -22,13 +22,13 @@
 ## Problemes rencontres
 | Etape | Probleme | Solution | Temps perdu |
 | --- | --- | --- | --- |
-| - | - | - | - |
+| UI refresh macro | NameError fetch_exchange_rate (bouton place avant les defs) | Deplacer le bouton apres les fonctions | 5 min |
 
 ## Modifications apportees
 | Fichier | Type | Description |
 | --- | --- | --- |
-| ui/pages/5_Market_Trends.py | Modifie | TTL MEF 15min + Refresh Macro + message indispo |
-| ui/pages/6_Scenario_Analysis.py | Modifie | TTL MEF 15min + Refresh Macro + message indispo |
+| ui/pages/5_Market_Trends.py | Modifie | TTL MEF 15min + Refresh Macro + message indispo + fix NameError |
+| ui/pages/6_Scenario_Analysis.py | Modifie | TTL MEF 15min + Refresh Macro + message indispo + fix NameError |
 | claudememoire | Modifie | Ajout note refresh macro MEF |
 | MEMOIRE_CLAUDE.md | Modifie | Ajout note refresh macro MEF |
 | tasks/mef-macro-refresh/02_plan.md | Modifie | Plan valide par l utilisateur |

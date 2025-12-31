@@ -1102,6 +1102,7 @@ Blocages :
 - TTL MEF reduit a 15 min (cache UI) pour eviter N/A persistants.
 - Bouton "Refresh Macro" ajoute (purge cache MEF seulement).
 - Message "Macro indicators currently unavailable" si toutes les valeurs sont absentes.
+- Fix: bouton Refresh Macro deplace apres defs pour eviter NameError en prod.
 
 **FIN CLAUDEMEMOIRE**
 

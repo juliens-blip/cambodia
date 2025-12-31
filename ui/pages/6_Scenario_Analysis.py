@@ -131,14 +131,6 @@ if st.sidebar.button(f"🔄 {t.get('scenario_refresh', 'Refresh Analysis')}"):
     st.cache_data.clear()
     print("[DEBUG] Cache cleared by user")
     st.rerun()
-
-# Refresh macro only
-if st.sidebar.button("Refresh Macro"):
-    fetch_exchange_rate.clear()
-    fetch_csx_summary.clear()
-    fetch_csx_index.clear()
-    st.sidebar.success("Macro cache cleared.")
-
 # Debug mode toggle
 show_debug = st.sidebar.checkbox("🐛 Debug mode", value=False)
 
@@ -861,6 +853,13 @@ def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: st
                     # Fallback for unknown type
                     st.markdown(f"**[{i}]** {str(citation)[:300]}...")
 
+
+# Sidebar refresh for macro indicators (after function definitions)
+if st.sidebar.button("Refresh Macro"):
+    fetch_exchange_rate.clear()
+    fetch_csx_summary.clear()
+    fetch_csx_index.clear()
+    st.sidebar.success("Macro cache cleared.")
 
 # Main content
 try:
