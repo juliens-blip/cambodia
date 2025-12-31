@@ -234,46 +234,54 @@ def format_number(value, decimals: int = 0) -> str:
     return f"{value:,.{decimals}f}"
 
 
+def fetch_mef_json(path: str, timeout: float = 15.0):
+    url = f"{MEF_REALTIME_BASE}/{path}"
+    last_error = None
+    for verify in (True, False):
+        try:
+            with httpx.Client(verify=verify) as client:
+                response = client.get(url, timeout=timeout)
+            if response.status_code == 200:
+                if not verify:
+                    print(f"[WARN] MEF SSL verification disabled for {path}")
+                return response.json()
+            print(f"[DEBUG] MEF {path} status {response.status_code}")
+            return None
+        except httpx.TransportError as e:
+            last_error = e
+            if verify and "CERTIFICATE_VERIFY_FAILED" in str(e):
+                print(f"[WARN] MEF SSL verification failed for {path}, retrying without verification.")
+                continue
+            print(f"[DEBUG] MEF {path} error: {e}")
+            return None
+        except Exception as e:
+            print(f"[DEBUG] MEF {path} error: {e}")
+            return None
+
+    if last_error:
+        print(f"[DEBUG] MEF {path} error: {last_error}")
+    return None
+
+
 @st.cache_data(ttl=900)
 def fetch_exchange_rate(currency_id: str = "USD"):
     """Fetch exchange rate from MEF realtime API."""
-    try:
-        with httpx.Client() as client:
-            url = f"{MEF_REALTIME_BASE}/exchange-rate?currency_id={currency_id}"
-            response = client.get(url, timeout=15.0)
-            if response.status_code == 200:
-                return response.json().get("data")
-    except Exception as e:
-        print(f"[DEBUG] MEF exchange rate error: {e}")
-    return None
+    data = fetch_mef_json(f"exchange-rate?currency_id={currency_id}")
+    return data.get("data") if data else None
 
 
 @st.cache_data(ttl=900)
 def fetch_csx_summary():
     """Fetch CSX summary from MEF realtime API."""
-    try:
-        with httpx.Client() as client:
-            url = f"{MEF_REALTIME_BASE}/csx-summary"
-            response = client.get(url, timeout=15.0)
-            if response.status_code == 200:
-                return response.json().get("data", [])
-    except Exception as e:
-        print(f"[DEBUG] MEF CSX summary error: {e}")
-    return []
+    data = fetch_mef_json("csx-summary")
+    return data.get("data", []) if data else []
 
 
 @st.cache_data(ttl=900)
 def fetch_csx_index():
     """Fetch CSX index from MEF realtime API."""
-    try:
-        with httpx.Client() as client:
-            url = f"{MEF_REALTIME_BASE}/csx-index"
-            response = client.get(url, timeout=15.0)
-            if response.status_code == 200:
-                return response.json().get("data")
-    except Exception as e:
-        print(f"[DEBUG] MEF CSX index error: {e}")
-    return None
+    data = fetch_mef_json("csx-index")
+    return data.get("data") if data else None
 
 
 def summarize_csx_summary(summary_rows):

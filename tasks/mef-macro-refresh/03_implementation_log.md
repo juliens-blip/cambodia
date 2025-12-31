@@ -23,14 +23,15 @@
 | Etape | Probleme | Solution | Temps perdu |
 | --- | --- | --- | --- |
 | UI refresh macro | NameError fetch_exchange_rate (bouton place avant les defs) | Deplacer le bouton apres les fonctions | 5 min |
+| MEF SSL | CERTIFICATE_VERIFY_FAILED sur data.mef.gov.kh | Retry sans verification SSL (warn) | 5 min |
 
 ## Modifications apportees
 | Fichier | Type | Description |
 | --- | --- | --- |
-| ui/pages/5_Market_Trends.py | Modifie | TTL MEF 15min + Refresh Macro + message indispo + fix NameError |
-| ui/pages/6_Scenario_Analysis.py | Modifie | TTL MEF 15min + Refresh Macro + message indispo + fix NameError |
-| claudememoire | Modifie | Ajout note refresh macro MEF |
-| MEMOIRE_CLAUDE.md | Modifie | Ajout note refresh macro MEF |
+| ui/pages/5_Market_Trends.py | Modifie | TTL MEF 15min + Refresh Macro + message indispo + retry SSL |
+| ui/pages/6_Scenario_Analysis.py | Modifie | TTL MEF 15min + Refresh Macro + message indispo + retry SSL |
+| claudememoire | Modifie | Ajout note refresh macro + SSL fallback MEF |
+| MEMOIRE_CLAUDE.md | Modifie | Ajout note refresh macro + SSL fallback MEF |
 | tasks/mef-macro-refresh/02_plan.md | Modifie | Plan valide par l utilisateur |
 
 ## Resultat final

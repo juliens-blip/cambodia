@@ -1103,6 +1103,7 @@ Blocages :
 - Bouton "Refresh Macro" ajoute (purge cache MEF seulement).
 - Message "Macro indicators currently unavailable" si toutes les valeurs sont absentes.
 - Fix: bouton Refresh Macro deplace apres defs pour eviter NameError en prod.
+- Fix: fallback SSL (retry sans verification) pour data.mef.gov.kh apres CERTIFICATE_VERIFY_FAILED.
 
 **FIN CLAUDEMEMOIRE**
 

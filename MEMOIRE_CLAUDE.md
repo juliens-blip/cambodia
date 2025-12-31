@@ -2154,6 +2154,7 @@ Ce qui a ete fait:
 - Bouton "Refresh Macro" ajoute (purge cache MEF seulement).
 - Message d info si macro indisponible.
 - Fix: bouton Refresh Macro deplace apres definitions pour eviter NameError.
+- Fix: fallback SSL (retry sans verification) pour data.mef.gov.kh apres CERTIFICATE_VERIFY_FAILED.
 
 Validation:
 - A faire apres redeploy / test UI Market Trends + Scenario Analysis.
