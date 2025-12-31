@@ -2144,3 +2144,15 @@ Comment:
 
 Validation:
 - A faire apres redeploy / test UI Market Trends + Scenario Analysis.
+
+---
+
+## MAJ 2025-12-31 - Refresh Macro MEF
+
+Ce qui a ete fait:
+- TTL MEF reduit a 15 min (cache UI) pour eviter N/A persistants.
+- Bouton "Refresh Macro" ajoute (purge cache MEF seulement).
+- Message d info si macro indisponible.
+
+Validation:
+- A faire apres redeploy / test UI Market Trends + Scenario Analysis.

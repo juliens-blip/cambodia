@@ -52,6 +52,12 @@ if auto_refresh:
     time.sleep(60)
     st.rerun()
 
+if st.sidebar.button("Refresh Macro"):
+    fetch_exchange_rate.clear()
+    fetch_csx_summary.clear()
+    fetch_csx_index.clear()
+    st.sidebar.success("Macro cache cleared.")
+
 
 def parse_number(value):
     if value is None:
@@ -73,7 +79,7 @@ def format_number(value, decimals: int = 0) -> str:
     return f"{value:,.{decimals}f}"
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=900)
 def fetch_exchange_rate(currency_id: str = "USD"):
     """Fetch exchange rate from MEF realtime API."""
     try:
@@ -87,7 +93,7 @@ def fetch_exchange_rate(currency_id: str = "USD"):
     return None
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=900)
 def fetch_csx_summary():
     """Fetch CSX summary from MEF realtime API."""
     try:
@@ -101,7 +107,7 @@ def fetch_csx_summary():
     return []
 
 
-@st.cache_data(ttl=3600)
+@st.cache_data(ttl=900)
 def fetch_csx_index():
     """Fetch CSX index from MEF realtime API."""
     try:
@@ -154,6 +160,8 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
     """Display macro indicators from MEF realtime API."""
     st.markdown(f"### {t.get('macro_indicators', 'Macro Indicators')}")
     st.caption(f"{t.get('trends_source', 'Source')}: MEF/NBC/CSX")
+    if not exchange_rate and not csx_summary_stats.get("count", 0) and not csx_index:
+        st.info("Macro indicators currently unavailable. Try Refresh Macro.")
 
     col1, col2, col3 = st.columns(3)
 
