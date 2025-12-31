@@ -158,6 +158,6 @@ st.markdown("---")
 st.header("Production Table")
 
 if production and production.get("data"):
-    st.dataframe(df_prod, use_container_width=True)
+    st.dataframe(df_prod, width="stretch")
 else:
     st.info("No production records to display.")

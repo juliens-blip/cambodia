@@ -162,7 +162,7 @@ if trends and trends.get('data'):
         height=400
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 else:
     st.info("📊 No trend data available")
 
@@ -188,6 +188,6 @@ if production and production.get('data'):
         total_prod = df_prod['production_tons'].sum() if 'production_tons' in df_prod else 0
         st.metric("Total Production (tons)", f"{total_prod:,.0f}")
 
-    st.dataframe(df_prod, use_container_width=True)
+    st.dataframe(df_prod, width="stretch")
 else:
     st.info("🌳 No production data available for this year")

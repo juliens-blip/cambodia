@@ -223,7 +223,7 @@ try:
         names="Type",
         title="Query Type Distribution"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.markdown("---")
 
@@ -246,7 +246,7 @@ try:
         title="Monthly Budget Breakdown",
         color="Category"
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
     st.markdown("---")
 

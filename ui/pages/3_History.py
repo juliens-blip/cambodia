@@ -36,7 +36,7 @@ with st.sidebar:
 
     limit = st.slider("Results to show", min_value=5, max_value=100, value=20)
 
-    refresh_button = st.button("🔄 Refresh", use_container_width=True)
+    refresh_button = st.button("🔄 Refresh", width="stretch")
 
 # Fetch history
 try:
@@ -67,7 +67,7 @@ try:
                 for msg in data['messages']
             ])
 
-            st.dataframe(df, use_container_width=True)
+            st.dataframe(df, width="stretch")
 
             # Export option
             if st.button("📥 Export to CSV"):

@@ -481,7 +481,7 @@ try:
                         )
                     )
 
-                    st.plotly_chart(fig_public, use_container_width=True)
+                    st.plotly_chart(fig_public, width="stretch")
                 else:
                     st.info(t.get('trends_no_price_data', 'No price data available'))
 
@@ -543,7 +543,7 @@ try:
                 height=400
             )
 
-            st.plotly_chart(fig_sentiment, use_container_width=True)
+            st.plotly_chart(fig_sentiment, width="stretch")
 
             # Price change over time
             if 'stock_change_pct' in df.columns:
@@ -568,7 +568,7 @@ try:
                     height=400
                 )
 
-                st.plotly_chart(fig_price, use_container_width=True)
+                st.plotly_chart(fig_price, width="stretch")
 
             # Confidence over time
             if 'confidence_score' in df.columns:
@@ -595,7 +595,7 @@ try:
                     height=400
                 )
 
-                st.plotly_chart(fig_confidence, use_container_width=True)
+                st.plotly_chart(fig_confidence, width="stretch")
 
             # Data table
             with st.expander(f"📋 {t.get('trends_raw_data', 'Raw Data')}", expanded=False):
@@ -608,7 +608,7 @@ try:
 
                 st.dataframe(
                     display_df,
-                    use_container_width=True,
+                    width="stretch",
                     hide_index=True
                 )
         else:

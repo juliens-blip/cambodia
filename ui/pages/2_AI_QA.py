@@ -58,7 +58,7 @@ with col1:
     rag_button = st.button(
         f"🤖 {t['chat_button']}",
         type="primary",
-        use_container_width=True,
+        width="stretch",
         help=f"{t['chat_cost']}: $0.005"
     )
 

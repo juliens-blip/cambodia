@@ -2157,5 +2157,12 @@ Ce qui a ete fait:
 - Fix: fallback SSL (retry sans verification) pour data.mef.gov.kh apres CERTIFICATE_VERIFY_FAILED.
 - CSX index: affiche N/A avec note "valeurs null" + timestamp si l API renvoie null.
 
+---
+
+## MAJ 2025-12-31 - Streamlit use_container_width
+
+Ce qui a ete fait:
+- Remplacement de use_container_width par width="stretch" dans UI et dashboard pour supprimer le warning Streamlit.
+
 Validation:
 - A faire apres redeploy / test UI Market Trends + Scenario Analysis.

@@ -51,7 +51,7 @@ query = st.text_input(
     key="search_query"
 )
 
-search_button = st.button(t["search_button"], type="primary", use_container_width=True)
+search_button = st.button(t["search_button"], type="primary", width="stretch")
 
 # Search logic
 if search_button and query:

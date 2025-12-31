@@ -330,7 +330,7 @@ def render_consistency_section(consistency_data):
         st.dataframe(
             df[["date", "MEF Value", "WITS Value", "Difference"]],
             hide_index=True,
-            use_container_width=True
+            width="stretch"
         )
 
         st.warning(
@@ -345,11 +345,11 @@ def main():
     # Sidebar controls
     st.sidebar.header("Controls")
 
-    if st.sidebar.button("🔄 Refresh Report", use_container_width=True):
+    if st.sidebar.button("🔄 Refresh Report", width="stretch"):
         st.cache_data.clear()
         st.rerun()
 
-    if st.sidebar.button("📊 Generate New Audit", use_container_width=True):
+    if st.sidebar.button("📊 Generate New Audit", width="stretch"):
         with st.spinner("Running data quality audit..."):
             import subprocess
             try:
@@ -442,12 +442,12 @@ def main():
     with col1:
         fig = render_quality_score(score_data)
         if fig:
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     with col2:
         fig = render_component_scores(score_data)
         if fig:
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     st.markdown("---")
 
@@ -468,7 +468,7 @@ def main():
     with col1:
         fig = render_coverage_chart(coverage)
         if fig:
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
         else:
             st.info("No coverage data available")
 
@@ -491,7 +491,7 @@ def main():
                 color="Source"
             )
             fig.update_layout(height=300, showlegend=False)
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
     # Temporal coverage
     temporal_cov = coverage.get("price_temporal_coverage", {})
@@ -540,7 +540,7 @@ def main():
     # Temporal gaps chart
     fig = render_temporal_gaps_chart(temporal)
     if fig:
-        st.plotly_chart(fig, use_container_width=True)
+        st.plotly_chart(fig, width="stretch")
 
     st.markdown("---")
 

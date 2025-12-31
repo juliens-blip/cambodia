@@ -231,7 +231,7 @@ else:
         height=450
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, width="stretch")
 
 st.markdown("---")
 
@@ -277,7 +277,7 @@ with left:
     st.subheader("Cashew (7d / 30d / 90d / 365d)")
     cashew_table = build_period_table("cashew", "Cashew")
     if not cashew_table.empty:
-        st.dataframe(cashew_table, use_container_width=True, hide_index=True)
+        st.dataframe(cashew_table, width="stretch", hide_index=True)
     else:
         st.info("No cashew data available.")
 
@@ -285,7 +285,7 @@ with right:
     st.subheader("Rubber (7d / 30d / 90d / 365d)")
     rubber_table = build_period_table("rubber", "Rubber")
     if not rubber_table.empty:
-        st.dataframe(rubber_table, use_container_width=True, hide_index=True)
+        st.dataframe(rubber_table, width="stretch", hide_index=True)
     else:
         st.info("No rubber data available.")
 
@@ -307,7 +307,7 @@ if events and events.get("data"):
         })
     events_df = pd.DataFrame(event_rows)
     if not events_df.empty:
-        st.dataframe(events_df, use_container_width=True, hide_index=True)
+        st.dataframe(events_df, width="stretch", hide_index=True)
     else:
         st.info("No events available yet.")
 else:

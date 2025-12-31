@@ -1106,6 +1106,12 @@ Blocages :
 - Fix: fallback SSL (retry sans verification) pour data.mef.gov.kh apres CERTIFICATE_VERIFY_FAILED.
 - CSX index: affiche N/A avec message "valeurs null" + timestamp si l API renvoie null.
 
+---
+
+## MAJ SESSION 2025-12-31 - Streamlit use_container_width
+
+- Remplacement de use_container_width par width="stretch" dans UI et dashboard (warning Streamlit).
+
 **FIN CLAUDEMEMOIRE**
 
 *Derniere mise a jour : 2025-12-31*
