@@ -238,6 +238,13 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
                 t.get('macro_csx_index', 'CSX Index'),
                 "N/A"
             )
+            if csx_index:
+                updated_at = csx_index.get("created_at") or csx_index.get("index_time")
+                if updated_at:
+                    if language == "fr":
+                        st.caption(f"Indice indisponible (valeurs null). Maj: {updated_at}")
+                    else:
+                        st.caption(f"Index unavailable (null values). Updated: {updated_at}")
 
 # Sidebar refresh for macro indicators (after function definitions)
 if st.sidebar.button("Refresh Macro"):

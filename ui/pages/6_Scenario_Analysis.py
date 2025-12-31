@@ -704,6 +704,13 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
                 t.get('macro_csx_index', 'CSX Index'),
                 "N/A"
             )
+            if csx_index:
+                updated_at = csx_index.get("created_at") or csx_index.get("index_time")
+                if updated_at:
+                    if language == "fr":
+                        st.caption(f"Indice indisponible (valeurs null). Maj: {updated_at}")
+                    else:
+                        st.caption(f"Index unavailable (null values). Updated: {updated_at}")
 
 
 def display_documents_used(results: list[dict], selection_stats: dict, commodity: str, keywords: list[str], top_k: int, threshold: float):

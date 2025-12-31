@@ -1104,6 +1104,7 @@ Blocages :
 - Message "Macro indicators currently unavailable" si toutes les valeurs sont absentes.
 - Fix: bouton Refresh Macro deplace apres defs pour eviter NameError en prod.
 - Fix: fallback SSL (retry sans verification) pour data.mef.gov.kh apres CERTIFICATE_VERIFY_FAILED.
+- CSX index: affiche N/A avec message "valeurs null" + timestamp si l API renvoie null.
 
 **FIN CLAUDEMEMOIRE**
 
