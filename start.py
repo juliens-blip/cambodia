@@ -232,6 +232,59 @@ def health_monitor():
     print("[MONITOR] Health monitor thread ending", flush=True)
 
 
+def get_streamlit_index_path() -> str | None:
+    """Resolve Streamlit's bundled index.html path."""
+    try:
+        import streamlit
+        base_dir = os.path.dirname(streamlit.__file__)
+        index_path = os.path.join(base_dir, "static", "index.html")
+        if os.path.exists(index_path):
+            return index_path
+    except Exception as exc:
+        print(f"[UI] Warning: could not locate Streamlit index.html: {exc}", flush=True)
+    return None
+
+
+def patch_streamlit_index_html() -> None:
+    """Patch Streamlit index.html to force root base URL for _stcore."""
+    index_path = get_streamlit_index_path()
+    if not index_path:
+        print("[UI] Warning: Streamlit index.html not found; skipping base URL patch.", flush=True)
+        return
+
+    marker = "<!-- codex:streamlit-base-url-patch -->"
+    injection = (
+        f"{marker}\n"
+        "<script>\n"
+        "  window.__streamlit = window.__streamlit || {};\n"
+        "  window.__streamlit.BACKEND_BASE_URL = window.location.origin + \"/\";\n"
+        "</script>\n"
+    )
+
+    try:
+        with open(index_path, "r", encoding="utf-8") as handle:
+            html = handle.read()
+    except Exception as exc:
+        print(f"[UI] Warning: failed to read {index_path}: {exc}", flush=True)
+        return
+
+    if marker in html:
+        print("[UI] Streamlit index.html already patched.", flush=True)
+        return
+
+    if "</head>" in html:
+        html = html.replace("</head>", f"{injection}</head>", 1)
+    else:
+        html = injection + html
+
+    try:
+        with open(index_path, "w", encoding="utf-8") as handle:
+            handle.write(html)
+        print(f"[UI] Patched Streamlit index.html: {index_path}", flush=True)
+    except Exception as exc:
+        print(f"[UI] Warning: failed to write {index_path}: {exc}", flush=True)
+
+
 def run_streamlit():
     """Run Streamlit on the main port (Railway's PORT)."""
     port = os.environ.get("PORT", "8501")
@@ -239,6 +292,7 @@ def run_streamlit():
     print(f"[UI] API_BASE_URL is: {os.environ.get('API_BASE_URL', 'not set')}", flush=True)
 
     try:
+        patch_streamlit_index_html()
         subprocess.run([
             sys.executable, "-m", "streamlit", "run",
             "ui/streamlit_app.py",

@@ -23,6 +23,7 @@ t = get_all_translations(language)
 # API endpoints
 BASE_URL = f"{API_BASE_URL}/api/v1"
 MEF_REALTIME_BASE = "https://data.mef.gov.kh/api/v1/realtime-api"
+CSX_INDEX_LAST_VALID_KEY = "macro_csx_index_last_valid"
 DOCS_CANDIDATES = 15
 DOCS_SELECTED = 5
 DOCS_THRESHOLD = 0.3
@@ -282,6 +283,19 @@ def fetch_csx_index():
     """Fetch CSX index from MEF realtime API."""
     data = fetch_mef_json("csx-index")
     return data.get("data") if data else None
+
+
+def remember_csx_index(csx_index):
+    if not csx_index:
+        return
+    index_value = parse_number(csx_index.get("value"))
+    if index_value is None:
+        return
+    st.session_state[CSX_INDEX_LAST_VALID_KEY] = {
+        "value": index_value,
+        "change_percent": parse_number(csx_index.get("change_percent")),
+        "updated_at": csx_index.get("created_at") or csx_index.get("index_time"),
+    }
 
 
 def summarize_csx_summary(summary_rows):
@@ -688,9 +702,22 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
     with col3:
         index_value = None
         change_pct = None
+        updated_at = None
+        fallback_used = False
+        last_valid = None
         if csx_index:
             index_value = parse_number(csx_index.get("value"))
             change_pct = parse_number(csx_index.get("change_percent"))
+            updated_at = csx_index.get("created_at") or csx_index.get("index_time")
+            if index_value is not None:
+                remember_csx_index(csx_index)
+
+        if index_value is None:
+            last_valid = st.session_state.get(CSX_INDEX_LAST_VALID_KEY)
+            if last_valid:
+                index_value = last_valid.get("value")
+                change_pct = last_valid.get("change_percent")
+                fallback_used = True
 
         if index_value is not None:
             delta = f"{change_pct:+.2f}%" if change_pct is not None else None
@@ -699,13 +726,29 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
                 format_number(index_value, decimals=2),
                 delta=delta
             )
+            if fallback_used:
+                last_updated = last_valid.get("updated_at") if last_valid else None
+                if language == "fr":
+                    note = (
+                        f"Indice MEF indisponible (valeurs nulles). "
+                        f"Dernier indice valide ({last_updated or 'N/A'})."
+                    )
+                    if updated_at:
+                        note += f" Maj MEF: {updated_at}."
+                else:
+                    note = (
+                        f"MEF index unavailable (null values). "
+                        f"Last valid index ({last_updated or 'N/A'})."
+                    )
+                    if updated_at:
+                        note += f" MEF updated: {updated_at}."
+                st.caption(note)
         else:
             st.metric(
                 t.get('macro_csx_index', 'CSX Index'),
                 "N/A"
             )
             if csx_index:
-                updated_at = csx_index.get("created_at") or csx_index.get("index_time")
                 if updated_at:
                     if language == "fr":
                         st.caption(f"Indice indisponible (valeurs null). Maj: {updated_at}")

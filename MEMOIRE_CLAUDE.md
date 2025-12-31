@@ -2166,3 +2166,14 @@ Ce qui a ete fait:
 
 Validation:
 - A faire apres redeploy / test UI Market Trends + Scenario Analysis.
+
+---
+
+## MAJ 2025-12-31 - Streamlit _stcore + CSX index fallback
+
+Ce qui a ete fait:
+- start.py: patch index.html Streamlit pour injecter BACKEND_BASE_URL a la racine (corrige les pings /Market_Trends/_stcore/*).
+- UI Market Trends + Scenario Analysis: fallback CSX index via dernier index valide en session + message si MEF renvoie null.
+
+Validation:
+- A faire apres redeploy / verification auto-refresh + CSX index.
