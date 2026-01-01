@@ -26,3 +26,6 @@ sentence-transformers>=2.2.0
 # Note: torch will be installed by sentence-transformers
 # Railway memory limit may require the smaller model
 # Consider using "all-MiniLM-L6-v2" instead of "multilingual-e5-large" in production
+
+# Scheduler for background tasks
+APScheduler>=3.10.4

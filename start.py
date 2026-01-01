@@ -276,8 +276,6 @@ def patch_streamlit_index_html() -> None:
         return
 
     marker = "<!-- codex:streamlit-base-url-patch -->"
-    cache_bust_marker = "<!-- codex:streamlit-cache-bust -->"
-    cache_bust_query = "v=codex-baseurl-1"
     injection = (
         f"{marker}\n"
         "<script>\n"
@@ -317,25 +315,6 @@ def patch_streamlit_index_html() -> None:
             updated = insert_injection(updated)
     else:
         updated = insert_injection(updated)
-
-    if cache_bust_query not in updated:
-        updated = re.sub(
-            r'src="./static/js/index\.([^\"]+)\.js"',
-            rf'src="./static/js/index.\1.js?{cache_bust_query}"',
-            updated,
-            count=1,
-        )
-        updated = re.sub(
-            r'href="./static/css/index\.([^\"]+)\.css"',
-            rf'href="./static/css/index.\1.css?{cache_bust_query}"',
-            updated,
-            count=1,
-        )
-        if cache_bust_marker not in updated:
-            if "</head>" in updated:
-                updated = updated.replace("</head>", f"{cache_bust_marker}\n</head>", 1)
-            else:
-                updated = cache_bust_marker + "\n" + updated
 
     if updated == html:
         print("[UI] Streamlit index.html already patched.", flush=True)

@@ -15,6 +15,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
 from ui.config import TRENDS_URL
+from ui.lib.csx_helper import save_csx_index, get_latest_csx_index
 
 # Page config
 st.set_page_config(page_title="Market Trends", page_icon="📈", layout="wide")
@@ -27,7 +28,7 @@ t = get_all_translations(language)
 BASE_URL = TRENDS_URL
 MEF_REALTIME_BASE = "https://data.mef.gov.kh/api/v1/realtime-api"
 CSX_INDEX_LAST_VALID_KEY = "macro_csx_index_last_valid"
-CSX_INDEX_CACHE_PATH = Path("logs/csx_index_cache.json")
+CSX_INDEX_CACHE_PATH = Path(__file__).resolve().parent.parent.parent / "logs" / "csx_index_cache.json"
 
 # Title
 st.title(f"📈 {t.get('trends_title', 'Market Trends Analysis')}")
@@ -49,13 +50,15 @@ history_days = st.sidebar.slider(
     value=30
 )
 
-# Auto-refresh option
-auto_refresh = st.sidebar.checkbox("Auto-refresh (60s)", value=False)
-if auto_refresh:
-    st.markdown(
-        "<meta http-equiv=\"refresh\" content=\"60\">",
-        unsafe_allow_html=True,
-    )
+# Manual refresh button
+if st.sidebar.button("🔄 Refresh Page"):
+    st.rerun()
+
+# Info message
+st.sidebar.markdown("""
+**Note**: Market Trends updates daily at 9:00 AM.
+Use **Trigger New Analysis** button to force refresh.
+""")
 
 def parse_number(value):
     if value is None:
@@ -77,59 +80,32 @@ def format_number(value, decimals: int = 0) -> str:
     return f"{value:,.{decimals}f}"
 
 
-@st.cache_resource
-def get_csx_index_cache():
-    cache = {"value": None, "change_percent": None, "updated_at": None}
-    cache.update(load_csx_index_cache_file())
-    return cache
-
-
-def load_csx_index_cache_file():
-    if not CSX_INDEX_CACHE_PATH.exists():
-        return {}
-    try:
-        data = json.loads(CSX_INDEX_CACHE_PATH.read_text(encoding="utf-8"))
-    except Exception as exc:
-        print(f"[WARN] Failed to read CSX cache file: {exc}")
-        return {}
-    if not isinstance(data, dict):
-        return {}
-    return {
-        "value": data.get("value"),
-        "change_percent": data.get("change_percent"),
-        "updated_at": data.get("updated_at"),
-    }
-
-
-def load_csx_index_env_override():
-    env_value = parse_number(os.getenv("CSX_INDEX_FALLBACK_VALUE"))
-    if env_value is None:
-        return None
-    return {
-        "value": env_value,
-        "change_percent": parse_number(os.getenv("CSX_INDEX_FALLBACK_CHANGE_PCT")),
-        "updated_at": os.getenv("CSX_INDEX_FALLBACK_UPDATED_AT"),
-    }
-
-
-def persist_csx_index_cache(payload):
-    try:
-        CSX_INDEX_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        CSX_INDEX_CACHE_PATH.write_text(json.dumps(payload), encoding="utf-8")
-    except Exception as exc:
-        print(f"[WARN] Failed to write CSX cache file: {exc}")
-
-
 def get_last_valid_csx_index():
+    """
+    Get last valid CSX index with fallback chain:
+    1. Session state (current session)
+    2. Supabase database (persistent)
+    3. Environment override (manual fallback)
+    """
+    # Check session state first
     last_valid = st.session_state.get(CSX_INDEX_LAST_VALID_KEY)
     if last_valid:
         return last_valid
-    cache = get_csx_index_cache()
-    if cache.get("value") is not None:
-        return dict(cache)
-    env_override = load_csx_index_env_override()
-    if env_override:
-        return env_override
+
+    # Try Supabase/file helper
+    cached_data = get_latest_csx_index()
+    if cached_data:
+        return cached_data
+
+    # Environment override (last resort)
+    env_value = parse_number(os.getenv("CSX_INDEX_FALLBACK_VALUE"))
+    if env_value is not None:
+        return {
+            "value": env_value,
+            "change_percent": parse_number(os.getenv("CSX_INDEX_FALLBACK_CHANGE_PCT")),
+            "updated_at": os.getenv("CSX_INDEX_FALLBACK_UPDATED_AT"),
+        }
+
     return None
 
 
@@ -184,20 +160,27 @@ def fetch_csx_index():
 
 
 def remember_csx_index(csx_index):
+    """Save CSX index to session state and Supabase/file"""
     if not csx_index:
         return
     index_value = parse_number(csx_index.get("value"))
     if index_value is None:
         return
+
+    change_percent = parse_number(csx_index.get("change_percent"))
+    updated_at = csx_index.get("created_at") or csx_index.get("index_time")
+
     payload = {
         "value": index_value,
-        "change_percent": parse_number(csx_index.get("change_percent")),
-        "updated_at": csx_index.get("created_at") or csx_index.get("index_time"),
+        "change_percent": change_percent,
+        "updated_at": updated_at,
     }
+
+    # Save to session state (current session)
     st.session_state[CSX_INDEX_LAST_VALID_KEY] = payload
-    cache = get_csx_index_cache()
-    cache.update(payload)
-    persist_csx_index_cache(cache)
+
+    # Save to Supabase/file (persistent)
+    save_csx_index(index_value, change_percent, updated_at)
 
 
 def summarize_csx_summary(summary_rows):

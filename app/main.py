@@ -110,12 +110,28 @@ async def lifespan(app: FastAPI):
     app.state.chromadb = chromadb_service
     app.state.supabase = supabase_service
 
+    # Start background scheduler for daily jobs
+    try:
+        from app.scheduler.jobs import start_scheduler
+        start_scheduler()
+        logger.info("✅ Background scheduler started")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to start scheduler: {e}")
+        logger.info("ℹ️ Continuing without scheduler - manual analysis only")
+
     logger.info("✅ API startup complete")
 
     yield
 
     # Shutdown
     logger.info("👋 Shutting down API...")
+
+    # Stop scheduler gracefully
+    try:
+        from app.scheduler.jobs import shutdown_scheduler
+        shutdown_scheduler()
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to shutdown scheduler: {e}")
 
 
 # Create FastAPI app
