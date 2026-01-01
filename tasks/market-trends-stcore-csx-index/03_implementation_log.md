@@ -26,7 +26,7 @@
 ## Problemes Rencontres
 | Etape | Probleme | Solution | Temps perdu |
 |---|---|---|---|
-| - | - | - | - |
+| 2.1 | Cache-bust non applique (regex trop echappee) | Correction regex + redeploy | 10min |
 
 ## Modifications apportees
 | Fichier | Type | Description |
@@ -35,6 +35,7 @@
 | ui/pages/5_Market_Trends.py | Modifie | Fallback CSX index via session_state |
 | ui/pages/6_Scenario_Analysis.py | Modifie | Fallback CSX index via session_state |
 | start.py | Modifie | Cache-bust des assets Streamlit pour forcer un reload JS |
+| start.py | Modifie | Fix regex cache-bust pour matcher index.js/css |
 
 ## Resultat Final
 **Statut:** En cours (tests manuels en attente)
