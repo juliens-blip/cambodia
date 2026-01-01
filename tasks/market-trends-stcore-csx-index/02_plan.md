@@ -1,19 +1,20 @@
 # Plan d'Implementation: Market Trends - _stcore routing + CSX index fallback
 
 ## Informations
-**Date:** 2025-12-31 20:23
+**Date:** 2026-01-01 00:50
 **Base sur:** tasks/market-trends-stcore-csx-index/01_analysis.md
-**Approche:** Corriger la base URI Streamlit via injection HTML (BACKEND_BASE_URL) avant le bundle JS; ajouter un fallback simple pour CSX Index et message explicite.
+**Approche:** Stabiliser Streamlit (_stcore + auto-refresh non bloquant) et rendre le CSX Index constant via un fallback persistant (session + cache partage).
 
 ## Objectif Final
-- Auto-refresh Streamlit stable (plus de 404 sur /Market_Trends/_stcore/*).
-- CSX Index affiche une valeur quand disponible, sinon message clair + fallback "dernier index valide" si present.
+- Auto-refresh Streamlit stable (plus de 404 sur /Market_Trends/_stcore/*) et sans blocage.
+- CSX Index affiche une valeur quand disponible, sinon message clair + fallback "dernier index valide" persistant.
 
 ## Gap Analysis
 | Etat Actuel | Etat Cible | Action Requise |
 |---|---|---|
 | JS Streamlit derive la base sur /Market_Trends | Base fixe sur la racine | Injecter window.__streamlit.BACKEND_BASE_URL dans index.html avant JS |
-| CSX index renvoie null -> N/A | Fallback + message explicite | Stocker dernier index valide en session et afficher l'etat de la source |
+| Auto-refresh bloque le rendu | Auto-refresh non bloquant | Remplacer sleep + rerun par un reload JS (components.html) |
+| CSX index renvoie null -> N/A | Fallback persistant + message explicite | Stocker dernier index valide en session + cache partage |
 
 ## Architecture Proposee
 `
@@ -21,7 +22,8 @@
     |-> index.html injecte BACKEND_BASE_URL (root)
     |-> JS _stcore ping vers /_stcore/*
 
-[UI pages] -> fetch_csx_index -> fallback dernier index valide
+[UI pages] -> fetch_csx_index -> cache partage dernier index valide
+[Market Trends] -> auto-refresh non bloquant (JS)
 `
 
 ## Checklist Technique (Step-by-Step)
@@ -32,26 +34,31 @@
   - Validation: HTML contient un marqueur unique + BACKEND_BASE_URL
 
 ### Phase 2: Fix auto-refresh (Streamlit)
-- [ ] **2.1** - Appeler patch_streamlit_index_html() avant un_streamlit()
+- [ ] **2.1** - Appeler patch_streamlit_index_html() avant run_streamlit()
   - Validation: GET /Market_Trends contient le script injecte
-- [ ] **2.2** - Verifier que le ping cible /_stcore/health (plus de 404 Market_Trends/_stcore)
+- [ ] **2.2** - Remplacer l'auto-refresh bloquant dans ui/pages/5_Market_Trends.py
+  - Action: components.html("<script>setTimeout(() => window.location.reload(), 60000)</script>")
+  - Validation: la page charge completement avant le prochain refresh
+- [ ] **2.3** - Verifier que le ping cible /_stcore/health (plus de 404 Market_Trends/_stcore)
 
-### Phase 3: CSX Index fallback
-- [ ] **3.1** - Ajouter un cache "dernier index valide" dans ui/pages/5_Market_Trends.py
-  - Action: si alue ou change_percent non nuls, stocker dans st.session_state
-  - Validation: si l'API renvoie null, l'UI affiche la derniere valeur connue + note
-- [ ] **3.2** - Repeter la meme logique dans ui/pages/6_Scenario_Analysis.py
+### Phase 3: CSX Index fallback persistant
+- [ ] **3.1** - Ajouter un cache partage via st.cache_resource (Market Trends)
+  - Action: stocker dernier index valide dans cache partage + session_state
+  - Validation: reload navigateur conserve la derniere valeur connue
+- [ ] **3.2** - Utiliser ce cache dans ui/pages/6_Scenario_Analysis.py
+  - Action: fallback identique + usage dans le contexte macro
+  - Validation: CSX Index stable meme si MEF renvoie null
 
 ### Phase 4: Tests & Validation
 - [ ] **4.1** - Test manuel: ouvrir /Market_Trends et verifier absence de 404 _stcore
-- [ ] **4.2** - Test manuel: rafraichir la page et verifier auto-refresh stable
-- [ ] **4.3** - Test manuel: simuler csx_index null et verifier message/fallback
+- [ ] **4.2** - Test manuel: activer auto-refresh et verifier que la page ne boucle pas (rendu OK)
+- [ ] **4.3** - Test manuel: simuler csx_index null et verifier message + fallback persistant
 
 ## Commandes a Executer
-`ash
+```bash
 # (Optionnel) Verifier HTML injecte
-a) curl https://cambodia.up.railway.app/Market_Trends | rg "BACKEND_BASE_URL"
-`
+curl https://cambodia.up.railway.app/Market_Trends | rg "BACKEND_BASE_URL"
+```
 
 ## Risques Identifies
 | Risque | Impact | Mitigation |
@@ -61,7 +68,7 @@ a) curl https://cambodia.up.railway.app/Market_Trends | rg "BACKEND_BASE_URL"
 
 ## Points de Validation
 - [ ] /Market_Trends/_stcore/health n'est plus appele (ou renvoie 200 si on force)
-- [ ] UI reste connectee (statut Streamlit OK)
+- [ ] UI reste connectee (statut Streamlit OK, pas de loop)
 - [ ] CSX Index ne casse pas l'affichage
 
 ## References (Context7)

@@ -3,6 +3,7 @@
 ## Informations
 **Date debut:** 2025-12-31 22:03
 **Base sur:** 02_plan.md (valide)
+**Validation utilisateur:** 2026-01-01 (go)
 **Statut:** En cours
 
 ## Progression
@@ -12,11 +13,12 @@
 
 ### Phase 2: Fix auto-refresh (Streamlit)
 - [x] **2.1** - Appliquer patch avant lancement Streamlit
-- [ ] **2.2** - Verifier ping _stcore (manuel)
+- [x] **2.2** - Remplacer auto-refresh bloquant par reload JS (Market Trends)
+- [ ] **2.3** - Verifier ping _stcore (manuel)
 
-### Phase 3: CSX Index fallback
-- [x] **3.1** - Ajouter fallback dans ui/pages/5_Market_Trends.py
-- [x] **3.2** - Ajouter fallback dans ui/pages/6_Scenario_Analysis.py
+### Phase 3: CSX Index fallback persistant
+- [x] **3.1** - Ajouter cache partage + fallback (Market Trends)
+- [x] **3.2** - Ajouter cache partage + fallback (Scenario Analysis)
 
 ### Phase 4: Tests & Validation
 - [ ] **4.1** - Test manuel ping _stcore
@@ -33,8 +35,8 @@
 | Fichier | Type | Description |
 |---|---|---|
 | start.py | Modifie | Patch index.html Streamlit + injection BACKEND_BASE_URL |
-| ui/pages/5_Market_Trends.py | Modifie | Fallback CSX index via session_state |
-| ui/pages/6_Scenario_Analysis.py | Modifie | Fallback CSX index via session_state |
+| ui/pages/5_Market_Trends.py | Modifie | Auto-refresh non bloquant + cache partage CSX index |
+| ui/pages/6_Scenario_Analysis.py | Modifie | Cache partage CSX index + macro context fallback |
 | start.py | Modifie | Cache-bust des assets Streamlit pour forcer un reload JS |
 | start.py | Modifie | Fix regex cache-bust pour matcher index.js/css |
 | start.py | Modifie | Cache-bust applique si query manquante (meme si marker present) |

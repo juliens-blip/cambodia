@@ -235,6 +235,21 @@ def format_number(value, decimals: int = 0) -> str:
     return f"{value:,.{decimals}f}"
 
 
+@st.cache_resource
+def get_csx_index_cache():
+    return {"value": None, "change_percent": None, "updated_at": None}
+
+
+def get_last_valid_csx_index():
+    last_valid = st.session_state.get(CSX_INDEX_LAST_VALID_KEY)
+    if last_valid:
+        return last_valid
+    cache = get_csx_index_cache()
+    if cache.get("value") is not None:
+        return dict(cache)
+    return None
+
+
 def fetch_mef_json(path: str, timeout: float = 15.0):
     url = f"{MEF_REALTIME_BASE}/{path}"
     last_error = None
@@ -291,11 +306,14 @@ def remember_csx_index(csx_index):
     index_value = parse_number(csx_index.get("value"))
     if index_value is None:
         return
-    st.session_state[CSX_INDEX_LAST_VALID_KEY] = {
+    payload = {
         "value": index_value,
         "change_percent": parse_number(csx_index.get("change_percent")),
         "updated_at": csx_index.get("created_at") or csx_index.get("index_time"),
     }
+    st.session_state[CSX_INDEX_LAST_VALID_KEY] = payload
+    cache = get_csx_index_cache()
+    cache.update(payload)
 
 
 def summarize_csx_summary(summary_rows):
@@ -361,13 +379,22 @@ def build_macro_context(exchange_rate, csx_summary_stats, csx_index):
             f"total value {total_value} KHR; total volume {total_volume}."
         )
 
+    index_value = None
+    change_pct = None
     if csx_index:
         index_value = parse_number(csx_index.get("value"))
         change_pct = parse_number(csx_index.get("change_percent"))
-        if index_value is not None or change_pct is not None:
-            value_text = format_number(index_value, decimals=2)
-            change_text = f"{change_pct:+.2f}%" if change_pct is not None else "N/A"
-            parts.append(f"CSX index: {value_text} (change {change_text}).")
+
+    if index_value is None and change_pct is None:
+        last_valid = get_last_valid_csx_index()
+        if last_valid:
+            index_value = last_valid.get("value")
+            change_pct = last_valid.get("change_percent")
+
+    if index_value is not None or change_pct is not None:
+        value_text = format_number(index_value, decimals=2)
+        change_text = f"{change_pct:+.2f}%" if change_pct is not None else "N/A"
+        parts.append(f"CSX index: {value_text} (change {change_text}).")
 
     return "\n".join(parts).strip()
 
@@ -713,7 +740,7 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
                 remember_csx_index(csx_index)
 
         if index_value is None:
-            last_valid = st.session_state.get(CSX_INDEX_LAST_VALID_KEY)
+            last_valid = get_last_valid_csx_index()
             if last_valid:
                 index_value = last_valid.get("value")
                 change_pct = last_valid.get("change_percent")

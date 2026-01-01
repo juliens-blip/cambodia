@@ -2179,3 +2179,15 @@ Ce qui a ete fait:
 
 Validation:
 - A faire apres redeploy / verification auto-refresh + CSX index.
+
+---
+
+## MAJ 2026-01-01 - Auto-refresh non bloquant + CSX cache persistant
+
+Ce qui a ete fait:
+- UI Market Trends: auto-refresh remplace par reload JS via components.html (non bloquant).
+- UI Market Trends + Scenario Analysis: ajout cache partage st.cache_resource pour conserver le dernier CSX index valide.
+- Scenario Analysis: macro_context utilise le fallback CSX si l API MEF renvoie null.
+
+Validation:
+- A faire apres redeploy / verification loop auto-refresh + CSX index constant.

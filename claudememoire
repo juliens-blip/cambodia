@@ -1121,8 +1121,16 @@ Blocages :
 - start.py: cache-bust des assets Streamlit (JS/CSS) pour forcer un reload apres patch.
 - start.py: cache-bust applique meme si marker deja present (si query manquante).
 
+---
+
+## MAJ SESSION 2026-01-01 - Auto-refresh non bloquant + CSX cache persistant
+
+- UI Market Trends: auto-refresh remplace par reload JS (non bloquant, evite loop).
+- UI Market Trends + Scenario Analysis: cache partage (st.cache_resource) pour conserver le dernier CSX index valide apres reload.
+- Scenario Analysis: macro_context utilise le fallback CSX pour alimenter l analyse.
+
 **FIN CLAUDEMEMOIRE**
 
-*Derniere mise a jour : 2025-12-31*
-*Status : IMPLEMENTATION TERMINEE*
+*Derniere mise a jour : 2026-01-01*
+*Status : IMPLEMENTATION EN COURS*
 *Lecon apprise : TOUJOURS DELEGUER AUX AGENTS*
