@@ -14,6 +14,7 @@ import urllib.request
 import urllib.error
 import signal
 import atexit
+import re
 
 print("=" * 60, flush=True)
 print("START.PY LOADED - Version 3.0", flush=True)
@@ -253,6 +254,8 @@ def patch_streamlit_index_html() -> None:
         return
 
     marker = "<!-- codex:streamlit-base-url-patch -->"
+    cache_bust_marker = "<!-- codex:streamlit-cache-bust -->"
+    cache_bust_query = "v=codex-baseurl-1"
     injection = (
         f"{marker}\n"
         "<script>\n"
@@ -268,18 +271,39 @@ def patch_streamlit_index_html() -> None:
         print(f"[UI] Warning: failed to read {index_path}: {exc}", flush=True)
         return
 
-    if marker in html:
+    updated = html
+
+    if marker not in updated:
+        if "</head>" in updated:
+            updated = updated.replace("</head>", f"{injection}</head>", 1)
+        else:
+            updated = injection + updated
+
+    if cache_bust_marker not in updated:
+        updated = re.sub(
+            r'src="\\./static/js/index\\.([^\"]+)\\.js"',
+            rf'src="./static/js/index.\1.js?{cache_bust_query}"',
+            updated,
+            count=1,
+        )
+        updated = re.sub(
+            r'href="\\./static/css/index\\.([^\"]+)\\.css"',
+            rf'href="./static/css/index.\1.css?{cache_bust_query}"',
+            updated,
+            count=1,
+        )
+        if "</head>" in updated:
+            updated = updated.replace("</head>", f"{cache_bust_marker}\n</head>", 1)
+        else:
+            updated = cache_bust_marker + "\n" + updated
+
+    if updated == html:
         print("[UI] Streamlit index.html already patched.", flush=True)
         return
 
-    if "</head>" in html:
-        html = html.replace("</head>", f"{injection}</head>", 1)
-    else:
-        html = injection + html
-
     try:
         with open(index_path, "w", encoding="utf-8") as handle:
-            handle.write(html)
+            handle.write(updated)
         print(f"[UI] Patched Streamlit index.html: {index_path}", flush=True)
     except Exception as exc:
         print(f"[UI] Warning: failed to write {index_path}: {exc}", flush=True)

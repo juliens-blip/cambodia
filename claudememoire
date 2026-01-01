@@ -1118,6 +1118,7 @@ Blocages :
 
 - start.py: patch index.html Streamlit pour injecter BACKEND_BASE_URL sur la racine (corrige les pings /Market_Trends/_stcore/*).
 - UI Market Trends + Scenario Analysis: fallback CSX index via dernier index valide en session + message si MEF renvoie null.
+- start.py: cache-bust des assets Streamlit (JS/CSS) pour forcer un reload apres patch.
 
 **FIN CLAUDEMEMOIRE**
 

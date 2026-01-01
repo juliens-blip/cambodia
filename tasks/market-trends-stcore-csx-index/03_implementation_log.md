@@ -34,6 +34,7 @@
 | start.py | Modifie | Patch index.html Streamlit + injection BACKEND_BASE_URL |
 | ui/pages/5_Market_Trends.py | Modifie | Fallback CSX index via session_state |
 | ui/pages/6_Scenario_Analysis.py | Modifie | Fallback CSX index via session_state |
+| start.py | Modifie | Cache-bust des assets Streamlit pour forcer un reload JS |
 
 ## Resultat Final
 **Statut:** En cours (tests manuels en attente)
