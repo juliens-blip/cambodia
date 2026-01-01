@@ -110,9 +110,12 @@ async def lifespan(app: FastAPI):
     app.state.chromadb = chromadb_service
     app.state.supabase = supabase_service
 
+    logger.info("🔄 Initializing background scheduler...")
+
     # Start background scheduler for daily jobs
     try:
         from app.scheduler.jobs import start_scheduler
+        logger.info("📦 Scheduler module imported successfully")
         start_scheduler()
         logger.info("✅ Background scheduler started")
     except Exception as e:
