@@ -6,6 +6,7 @@ import httpx
 import json
 import re
 from datetime import datetime
+from pathlib import Path
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -24,6 +25,7 @@ t = get_all_translations(language)
 BASE_URL = f"{API_BASE_URL}/api/v1"
 MEF_REALTIME_BASE = "https://data.mef.gov.kh/api/v1/realtime-api"
 CSX_INDEX_LAST_VALID_KEY = "macro_csx_index_last_valid"
+CSX_INDEX_CACHE_PATH = Path("logs/csx_index_cache.json")
 DOCS_CANDIDATES = 15
 DOCS_SELECTED = 5
 DOCS_THRESHOLD = 0.3
@@ -237,7 +239,34 @@ def format_number(value, decimals: int = 0) -> str:
 
 @st.cache_resource
 def get_csx_index_cache():
-    return {"value": None, "change_percent": None, "updated_at": None}
+    cache = {"value": None, "change_percent": None, "updated_at": None}
+    cache.update(load_csx_index_cache_file())
+    return cache
+
+
+def load_csx_index_cache_file():
+    if not CSX_INDEX_CACHE_PATH.exists():
+        return {}
+    try:
+        data = json.loads(CSX_INDEX_CACHE_PATH.read_text(encoding="utf-8"))
+    except Exception as exc:
+        print(f"[WARN] Failed to read CSX cache file: {exc}")
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        "value": data.get("value"),
+        "change_percent": data.get("change_percent"),
+        "updated_at": data.get("updated_at"),
+    }
+
+
+def persist_csx_index_cache(payload):
+    try:
+        CSX_INDEX_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+        CSX_INDEX_CACHE_PATH.write_text(json.dumps(payload), encoding="utf-8")
+    except Exception as exc:
+        print(f"[WARN] Failed to write CSX cache file: {exc}")
 
 
 def get_last_valid_csx_index():
@@ -314,6 +343,7 @@ def remember_csx_index(csx_index):
     st.session_state[CSX_INDEX_LAST_VALID_KEY] = payload
     cache = get_csx_index_cache()
     cache.update(payload)
+    persist_csx_index_cache(cache)
 
 
 def summarize_csx_summary(summary_rows):

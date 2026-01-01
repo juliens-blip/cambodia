@@ -3,7 +3,7 @@
 ## Informations
 **Date:** 2026-01-01 00:50
 **Base sur:** tasks/market-trends-stcore-csx-index/01_analysis.md
-**Approche:** Stabiliser Streamlit (_stcore + auto-refresh sans JS via st.fragment) et rendre le CSX Index constant via un fallback persistant (session + cache partage).
+**Approche:** Stabiliser Streamlit (_stcore + auto-refresh via streamlit-autorefresh) et rendre le CSX Index constant via un fallback persistant (session + cache partage + fichier).
 
 ## Objectif Final
 - Auto-refresh Streamlit stable (plus de 404 sur /Market_Trends/_stcore/*) et sans blocage.
@@ -13,9 +13,9 @@
 | Etat Actuel | Etat Cible | Action Requise |
 |---|---|---|
 | JS Streamlit derive la base sur /Market_Trends | Base fixe sur la racine | Injecter window.__streamlit.BACKEND_BASE_URL dans index.html avant JS |
-| Auto-refresh bloque le rendu | Auto-refresh non bloquant | Remplacer sleep + rerun par st.fragment(run_every=60) |
-| CSX index renvoie null -> N/A | Fallback persistant + message explicite | Stocker dernier index valide en session + cache partage |
-| React #321 (invalid hook call) | Front stable sans erreur | Supprimer l auto-refresh JS et utiliser st.fragment run_every |
+| Auto-refresh bloque le rendu | Auto-refresh non bloquant | Utiliser streamlit-autorefresh (component) |
+| CSX index renvoie null -> N/A | Fallback persistant + message explicite | Stocker dernier index valide en session + cache partage + fichier |
+| React #321 (invalid hook call) | Front stable sans erreur | Supprimer l auto-refresh JS/custom et utiliser streamlit-autorefresh |
 
 ## Architecture Proposee
 `
@@ -24,7 +24,7 @@
     |-> JS _stcore ping vers /_stcore/*
 
 [UI pages] -> fetch_csx_index -> cache partage dernier index valide
-[Market Trends] -> auto-refresh non bloquant (st.fragment run_every)
+[Market Trends] -> auto-refresh non bloquant (streamlit-autorefresh)
 `
 
 ## Checklist Technique (Step-by-Step)
@@ -37,14 +37,14 @@
 ### Phase 2: Fix auto-refresh (Streamlit)
 - [ ] **2.1** - Appeler patch_streamlit_index_html() avant run_streamlit()
   - Validation: GET /Market_Trends contient le script injecte
-- [ ] **2.2** - Remplacer l'auto-refresh par st.fragment(run_every=60)
-  - Action: envelopper le rendu principal dans un fragment; retirer components.html
+- [ ] **2.2** - Remplacer l'auto-refresh par streamlit-autorefresh
+  - Action: ajouter la dependance + appeler st_autorefresh(interval=60s)
   - Validation: pas d erreur React #321, la page se rafraichit sans blocage
 - [ ] **2.3** - Verifier que le ping cible /_stcore/health (plus de 404 Market_Trends/_stcore)
 
 ### Phase 3: CSX Index fallback persistant
-- [ ] **3.1** - Ajouter un cache partage via st.cache_resource (Market Trends)
-  - Action: stocker dernier index valide dans cache partage + session_state
+- [ ] **3.1** - Ajouter un cache partage + fichier local (Market Trends)
+  - Action: stocker dernier index valide dans cache partage + session_state + logs/csx_index_cache.json
   - Validation: reload navigateur conserve la derniere valeur connue
 - [ ] **3.2** - Utiliser ce cache dans ui/pages/6_Scenario_Analysis.py
   - Action: fallback identique + usage dans le contexte macro

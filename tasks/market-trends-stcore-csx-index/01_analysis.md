@@ -96,6 +96,7 @@ Minified React error #321 (Invalid hook call)
 ## Points d'Attention
 - **_stcore 404:** la JS Streamlit derive base URI depuis window.location sur /Market_Trends et tente /Market_Trends/_stcore/* alors que le serveur expose /_stcore/* (baseUrlPath vide).
 - **CSX index null:** l'endpoint MEF csx-index renvoie des champs value/change_percent a null (donnees upstream).
+- **CSX index sans historique:** l'endpoint MEF renvoie une seule ligne, aucun parametre ne retourne d'historique.
 - **Context7:** non disponible; aucune doc externe chargee automatiquement.
 - **Auto-refresh bloque:** l'auto-refresh est execute en haut de page (sleep + rerun), ce qui empeche le rendu complet et donne l'impression de chargement en boucle.
 - **Fallback CSX fragile:** la fallback via session_state saute apres un reload navigateur (nouvelle session), donc N/A persiste si la source reste null.
@@ -106,13 +107,14 @@ Minified React error #321 (Invalid hook call)
 - Ajouter un fallback "dernier index valide" (session/local) ou message explicite "source MEF renvoie null".
 - Remplacer l'auto-refresh bloquant par un reload non bloquant (JS via components.html) pour laisser le rendu et la nouvelle analyse s'afficher.
 - Conserver un "dernier index valide" partage entre sessions (cache_resource ou variable globale) pour rester constant meme apres reload.
-- Remplacer l auto-refresh par `st.fragment(run_every=60)` pour eviter l injection JS/HTML et supprimer l erreur React.
+- Remplacer l auto-refresh par `streamlit-autorefresh` (component officiel) pour eviter JS custom + l erreur React.
+- Persistant CSX index: stocker la derniere valeur valide dans un fichier local (logs) pour survivre aux reloads.
 
 ## Resume Executif
 - L'auto-refresh casse car Streamlit tente _stcore sous /Market_Trends, route inexistante quand server.baseUrlPath est vide.
 - Le CSX Index est N/A car l'API MEF renvoie des valeurs nulles (probleme upstream, pas parsing).
 - Le loop de chargement vient d'un auto-refresh bloquant (sleep + rerun) execute avant le rendu de la page.
 - L erreur React #321 indique un invalid hook call, possiblement lie a l auto-refresh JS.
-- Correctifs principaux: forcer le BACKEND_BASE_URL dans le HTML Streamlit, remplacer l'auto-refresh par un fragment (run_every), et garder un cache persistant pour le CSX index.
+- Correctifs principaux: forcer le BACKEND_BASE_URL dans le HTML Streamlit, remplacer l'auto-refresh par streamlit-autorefresh, et garder un cache persistant pour le CSX index.
 
 

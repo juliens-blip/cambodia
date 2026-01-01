@@ -2203,3 +2203,15 @@ Ce qui a ete fait:
 
 Validation:
 - A faire apres redeploy / verifier absence erreur #321 + refresh stable.
+
+---
+
+## MAJ 2026-01-01 - Auto-refresh streamlit-autorefresh + CSX cache fichier
+
+Ce qui a ete fait:
+- UI Market Trends: auto-refresh via streamlit-autorefresh (remplace st.fragment).
+- UI Market Trends + Scenario Analysis: cache CSX index persistant via logs/csx_index_cache.json.
+- requirements-streamlit.txt: ajout streamlit-autorefresh.
+
+Validation:
+- A faire apres redeploy / verifier absence erreur #321 + fallback CSX persistent.

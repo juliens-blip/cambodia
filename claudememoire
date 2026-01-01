@@ -1137,6 +1137,14 @@ Blocages :
 - Remplacement auto-refresh JS par `st.fragment(run_every=60)` pour eviter composant HTML.
 - UI Market Trends: rendu principal enveloppe dans un fragment, pas de JS injecte cote page.
 
+---
+
+## MAJ SESSION 2026-01-01 - Auto-refresh streamlit-autorefresh + CSX cache fichier
+
+- UI Market Trends: auto-refresh via streamlit-autorefresh (suppression st.fragment).
+- UI Market Trends + Scenario Analysis: cache CSX index persistant via fichier logs/csx_index_cache.json.
+- requirements-streamlit.txt: ajout streamlit-autorefresh.
+
 **FIN CLAUDEMEMOIRE**
 
 *Derniere mise a jour : 2026-01-01*
