@@ -3,7 +3,7 @@
 ## Informations
 **Date:** 2026-01-01 00:50
 **Base sur:** tasks/market-trends-stcore-csx-index/01_analysis.md
-**Approche:** Stabiliser Streamlit (_stcore + auto-refresh non bloquant) et rendre le CSX Index constant via un fallback persistant (session + cache partage).
+**Approche:** Stabiliser Streamlit (_stcore + auto-refresh sans JS via st.fragment) et rendre le CSX Index constant via un fallback persistant (session + cache partage).
 
 ## Objectif Final
 - Auto-refresh Streamlit stable (plus de 404 sur /Market_Trends/_stcore/*) et sans blocage.
@@ -13,8 +13,9 @@
 | Etat Actuel | Etat Cible | Action Requise |
 |---|---|---|
 | JS Streamlit derive la base sur /Market_Trends | Base fixe sur la racine | Injecter window.__streamlit.BACKEND_BASE_URL dans index.html avant JS |
-| Auto-refresh bloque le rendu | Auto-refresh non bloquant | Remplacer sleep + rerun par un reload JS (components.html) |
+| Auto-refresh bloque le rendu | Auto-refresh non bloquant | Remplacer sleep + rerun par st.fragment(run_every=60) |
 | CSX index renvoie null -> N/A | Fallback persistant + message explicite | Stocker dernier index valide en session + cache partage |
+| React #321 (invalid hook call) | Front stable sans erreur | Supprimer l auto-refresh JS et utiliser st.fragment run_every |
 
 ## Architecture Proposee
 `
@@ -23,7 +24,7 @@
     |-> JS _stcore ping vers /_stcore/*
 
 [UI pages] -> fetch_csx_index -> cache partage dernier index valide
-[Market Trends] -> auto-refresh non bloquant (JS)
+[Market Trends] -> auto-refresh non bloquant (st.fragment run_every)
 `
 
 ## Checklist Technique (Step-by-Step)
@@ -36,9 +37,9 @@
 ### Phase 2: Fix auto-refresh (Streamlit)
 - [ ] **2.1** - Appeler patch_streamlit_index_html() avant run_streamlit()
   - Validation: GET /Market_Trends contient le script injecte
-- [ ] **2.2** - Remplacer l'auto-refresh bloquant dans ui/pages/5_Market_Trends.py
-  - Action: components.html("<script>setTimeout(() => window.location.reload(), 60000)</script>")
-  - Validation: la page charge completement avant le prochain refresh
+- [ ] **2.2** - Remplacer l'auto-refresh par st.fragment(run_every=60)
+  - Action: envelopper le rendu principal dans un fragment; retirer components.html
+  - Validation: pas d erreur React #321, la page se rafraichit sans blocage
 - [ ] **2.3** - Verifier que le ping cible /_stcore/health (plus de 404 Market_Trends/_stcore)
 
 ### Phase 3: CSX Index fallback persistant
@@ -52,7 +53,8 @@
 ### Phase 4: Tests & Validation
 - [ ] **4.1** - Test manuel: ouvrir /Market_Trends et verifier absence de 404 _stcore
 - [ ] **4.2** - Test manuel: activer auto-refresh et verifier que la page ne boucle pas (rendu OK)
-- [ ] **4.3** - Test manuel: simuler csx_index null et verifier message + fallback persistant
+- [ ] **4.3** - Test manuel: verifier absence d erreur React #321 dans la console
+- [ ] **4.4** - Test manuel: simuler csx_index null et verifier message + fallback persistant
 
 ## Commandes a Executer
 ```bash
@@ -69,6 +71,7 @@ curl https://cambodia.up.railway.app/Market_Trends | rg "BACKEND_BASE_URL"
 ## Points de Validation
 - [ ] /Market_Trends/_stcore/health n'est plus appele (ou renvoie 200 si on force)
 - [ ] UI reste connectee (statut Streamlit OK, pas de loop)
+- [ ] Pas d erreur React #321 dans la console
 - [ ] CSX Index ne casse pas l'affichage
 
 ## References (Context7)
@@ -82,6 +85,6 @@ curl https://cambodia.up.railway.app/Market_Trends | rg "BACKEND_BASE_URL"
 
 ## Pret pour Implementation
 - [x] Analyse complete (01_analysis.md)
-- [ ] Plan valide par l'utilisateur
+- [x] Plan valide par l'utilisateur
 - [x] Toutes les dependances identifiees
 - [x] Strategie claire

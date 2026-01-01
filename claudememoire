@@ -1129,6 +1129,14 @@ Blocages :
 - UI Market Trends + Scenario Analysis: cache partage (st.cache_resource) pour conserver le dernier CSX index valide apres reload.
 - Scenario Analysis: macro_context utilise le fallback CSX pour alimenter l analyse.
 
+---
+
+## MAJ SESSION 2026-01-01 - React #321 + auto-refresh via st.fragment
+
+- React error #321 (invalid hook call) observe en prod.
+- Remplacement auto-refresh JS par `st.fragment(run_every=60)` pour eviter composant HTML.
+- UI Market Trends: rendu principal enveloppe dans un fragment, pas de JS injecte cote page.
+
 **FIN CLAUDEMEMOIRE**
 
 *Derniere mise a jour : 2026-01-01*

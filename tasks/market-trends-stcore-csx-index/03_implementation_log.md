@@ -13,7 +13,7 @@
 
 ### Phase 2: Fix auto-refresh (Streamlit)
 - [x] **2.1** - Appliquer patch avant lancement Streamlit
-- [x] **2.2** - Remplacer auto-refresh bloquant par reload JS (Market Trends)
+- [x] **2.2** - Remplacer auto-refresh JS par st.fragment(run_every=60)
 - [ ] **2.3** - Verifier ping _stcore (manuel)
 
 ### Phase 3: CSX Index fallback persistant
@@ -30,12 +30,13 @@
 |---|---|---|---|
 | 2.1 | Cache-bust non applique (regex trop echappee) | Correction regex + redeploy | 10min |
 | 2.1 | Cache-bust bloque par le marker existant | Appliquer cache-bust si query manquante | 5min |
+| 2.2 | React error #321 (invalid hook call) | Remplacer auto-refresh JS par st.fragment | 15min |
 
 ## Modifications apportees
 | Fichier | Type | Description |
 |---|---|---|
 | start.py | Modifie | Patch index.html Streamlit + injection BACKEND_BASE_URL |
-| ui/pages/5_Market_Trends.py | Modifie | Auto-refresh non bloquant + cache partage CSX index |
+| ui/pages/5_Market_Trends.py | Modifie | Auto-refresh via st.fragment + cache partage CSX index |
 | ui/pages/6_Scenario_Analysis.py | Modifie | Cache partage CSX index + macro context fallback |
 | start.py | Modifie | Cache-bust des assets Streamlit pour forcer un reload JS |
 | start.py | Modifie | Fix regex cache-bust pour matcher index.js/css |

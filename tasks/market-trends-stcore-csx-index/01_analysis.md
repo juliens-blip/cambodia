@@ -3,7 +3,8 @@
 ## Contexte
 **Date:** 2026-01-01 00:50
 **Demande initiale:** Corriger le CSX Index (N/A) et l'auto-refresh Streamlit (erreurs /_stcore/health 404 + page qui boucle) sur Market Trends en production.
-**Objectif:** Stabiliser la connexion Streamlit (auto-refresh OK, page non bloquee) et clarifier/fixer l'affichage CSX Index si possible.
+**Contexte additionnel:** Apres redeploy, erreur front React #321 (invalid hook call) sur index.js, auto-refresh toujours instable.
+**Objectif:** Stabiliser la connexion Streamlit (auto-refresh OK, page non bloquee), eliminer l erreur React, et clarifier/fixer l'affichage CSX Index si possible.
 
 ## Etat Actuel de la Codebase
 
@@ -72,8 +73,15 @@ if auto_refresh:
     st.rerun()
 `
 
+#### Console navigateur (React error 321)
+`text
+Minified React error #321 (Invalid hook call)
+`
+
 ## Documentation Externe (Context7)
 - **Context7:** indisponible dans ce runtime (MCP non charge). Fallback sur le code source Streamlit local (site-packages).
+- **React error decoder (react.dev/errors/321):** Invalid hook call. Causes possibles: mismatch React/renderer, hooks hors composant, ou plusieurs copies de React.
+- **Streamlit st.fragment (docstring locale):** permet un rerun periodique via `run_every` sans bloquer le rendu.
 
 ## Dependances
 
@@ -91,17 +99,20 @@ if auto_refresh:
 - **Context7:** non disponible; aucune doc externe chargee automatiquement.
 - **Auto-refresh bloque:** l'auto-refresh est execute en haut de page (sleep + rerun), ce qui empeche le rendu complet et donne l'impression de chargement en boucle.
 - **Fallback CSX fragile:** la fallback via session_state saute apres un reload navigateur (nouvelle session), donc N/A persiste si la source reste null.
+- **React #321:** erreur invalid hook call cote client, probablement declenchee par un composant HTML/JS ajoute pour l auto-refresh (risque de double React ou hooks hors contexte).
 
 ## Opportunites Identifiees
 - Injecter window.__streamlit.BACKEND_BASE_URL = window.location.origin + '/' dans index.html avant le bundle JS pour forcer l'usage de /_stcore/*.
 - Ajouter un fallback "dernier index valide" (session/local) ou message explicite "source MEF renvoie null".
 - Remplacer l'auto-refresh bloquant par un reload non bloquant (JS via components.html) pour laisser le rendu et la nouvelle analyse s'afficher.
 - Conserver un "dernier index valide" partage entre sessions (cache_resource ou variable globale) pour rester constant meme apres reload.
+- Remplacer l auto-refresh par `st.fragment(run_every=60)` pour eviter l injection JS/HTML et supprimer l erreur React.
 
 ## Resume Executif
 - L'auto-refresh casse car Streamlit tente _stcore sous /Market_Trends, route inexistante quand server.baseUrlPath est vide.
 - Le CSX Index est N/A car l'API MEF renvoie des valeurs nulles (probleme upstream, pas parsing).
 - Le loop de chargement vient d'un auto-refresh bloquant (sleep + rerun) execute avant le rendu de la page.
-- Correctifs principaux: forcer le BACKEND_BASE_URL dans le HTML Streamlit et remplacer l'auto-refresh par un reload non bloquant + cache persistant pour le CSX index.
+- L erreur React #321 indique un invalid hook call, possiblement lie a l auto-refresh JS.
+- Correctifs principaux: forcer le BACKEND_BASE_URL dans le HTML Streamlit, remplacer l'auto-refresh par un fragment (run_every), et garder un cache persistant pour le CSX index.
 
 

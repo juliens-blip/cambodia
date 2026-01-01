@@ -2191,3 +2191,15 @@ Ce qui a ete fait:
 
 Validation:
 - A faire apres redeploy / verification loop auto-refresh + CSX index constant.
+
+---
+
+## MAJ 2026-01-01 - React #321 + auto-refresh via st.fragment
+
+Ce qui a ete fait:
+- Erreur React #321 (invalid hook call) identifiee en console.
+- UI Market Trends: auto-refresh refait avec `st.fragment(run_every=60)` (suppression JS components.html).
+- Pas d injection JS cote UI pour l auto-refresh.
+
+Validation:
+- A faire apres redeploy / verifier absence erreur #321 + refresh stable.
