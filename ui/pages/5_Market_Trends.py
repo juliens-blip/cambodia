@@ -80,6 +80,70 @@ def format_number(value, decimals: int = 0) -> str:
     return f"{value:,.{decimals}f}"
 
 
+def validate_trend_label(ai_analysis: str, current_label: str, price_change_pct: float = None) -> str:
+    """
+    Validate that trend label matches AI analysis content and price change.
+
+    Phase 1.4: Ensures coherence between displayed label and analysis content.
+
+    Args:
+        ai_analysis: Full AI analysis text
+        current_label: Current trend label from API
+        price_change_pct: Optional price change percentage for cross-validation
+
+    Returns:
+        Validated trend label (may differ from current_label if incoherence detected)
+    """
+    if not ai_analysis:
+        return current_label
+
+    analysis_lower = ai_analysis.lower()
+
+    # Check for explicit neutral/stable mentions in analysis
+    neutral_indicators = [
+        'neutral', 'stable', 'sideways', 'range-bound',
+        '+/-3%', 'flat', 'unchanged', 'little change'
+    ]
+
+    bullish_indicators = [
+        'bullish', 'upward', 'rising', 'increasing',
+        'positive outlook', 'price increase', 'gains expected'
+    ]
+
+    bearish_indicators = [
+        'bearish', 'downward', 'falling', 'decreasing',
+        'negative outlook', 'price decline', 'losses expected'
+    ]
+
+    strong_indicators = ['strong', 'very', 'significant', 'major', 'substantial']
+
+    # Count indicator matches
+    neutral_count = sum(1 for ind in neutral_indicators if ind in analysis_lower)
+    bullish_count = sum(1 for ind in bullish_indicators if ind in analysis_lower)
+    bearish_count = sum(1 for ind in bearish_indicators if ind in analysis_lower)
+    has_strong = any(ind in analysis_lower for ind in strong_indicators)
+
+    # Cross-validate with price change if available
+    if price_change_pct is not None:
+        if -3 <= price_change_pct <= 3:
+            neutral_count += 2  # Boost neutral if price is flat
+        elif price_change_pct > 7:
+            bullish_count += 2  # Boost bullish if price up significantly
+        elif price_change_pct < -7:
+            bearish_count += 2  # Boost bearish if price down significantly
+
+    # Determine validated label
+    if neutral_count > max(bullish_count, bearish_count):
+        return 'neutral'
+    elif bullish_count > bearish_count:
+        return 'strong_bullish' if has_strong else 'bullish'
+    elif bearish_count > bullish_count:
+        return 'strong_bearish' if has_strong else 'bearish'
+
+    # Default to current label if no clear signal
+    return current_label
+
+
 def get_last_valid_csx_index():
     """
     Get last valid CSX index with fallback chain:
@@ -370,7 +434,18 @@ try:
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                trend = latest.get('overall_trend', 'neutral')
+                # Phase 1.4: Validate trend label against AI analysis content
+                raw_trend = latest.get('overall_trend', 'neutral')
+                ai_analysis = latest.get('ai_analysis', '')
+                price_change = latest.get('stock_change_pct')
+
+                # Validate coherence between label and content
+                trend = validate_trend_label(ai_analysis, raw_trend, price_change)
+
+                # Show warning if label was corrected
+                if trend != raw_trend:
+                    print(f"[DEBUG] Trend label corrected: {raw_trend} -> {trend}")
+
                 trend_emoji = {
                     'strong_bullish': '📈🔥',
                     'bullish': '📈',

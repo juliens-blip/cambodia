@@ -309,6 +309,84 @@ class MarketTrendsService:
         parsed['news_summary'] = self._extract_section(response_text, 'NEWS', 'MARKET DATA')
         parsed['market_summary'] = self._extract_section(response_text, 'MARKET DATA', 'INTEGRATED')
 
+        # Validate prices for Cambodia cashew (Phase 1.2)
+        parsed = self._validate_prices_cambodia(parsed, 'cashew')
+
+        return parsed
+
+    def _validate_prices_cambodia(self, parsed: Dict, commodity: str) -> Dict:
+        """
+        Validate price ranges for Cambodia cashew market.
+
+        Adds price_type, price_context, and price_clarification fields.
+        Detects if price is RCN ($1,500-2,500) or Kernels ($6,000-7,000).
+
+        Args:
+            parsed: Parsed data dict from _parse_analysis
+            commodity: Commodity name (validation only applies to 'cashew')
+
+        Returns:
+            Enhanced dict with price context and clarification
+        """
+        if commodity != 'cashew':
+            return parsed
+
+        warnings = []
+        price = parsed.get('stock_price_usd') or parsed.get('stock_price')
+
+        if price:
+            # Detect if RCN or Kernels based on price range
+            if 1000 <= price <= 3000:
+                parsed['price_type'] = 'RCN'
+                parsed['price_context'] = 'Raw Cashew Nuts (FOB Cambodia)'
+                parsed['price_segment'] = 'raw'
+            elif 3001 <= price <= 5000:
+                parsed['price_type'] = 'RCN'
+                parsed['price_context'] = 'Raw Cashew Nuts (High quality or premium market)'
+                parsed['price_segment'] = 'raw_premium'
+                warnings.append(f"Price ${price:,.0f}/t is in upper RCN range - may indicate premium quality or market surge")
+            elif 5001 <= price <= 9000:
+                parsed['price_type'] = 'Kernels'
+                parsed['price_context'] = 'Processed Kernels (FOB Vietnam)'
+                parsed['price_segment'] = 'kernels'
+            elif price > 9000:
+                parsed['price_type'] = 'Kernels'
+                parsed['price_context'] = 'Premium Kernels W180/W240 (FOB Vietnam)'
+                parsed['price_segment'] = 'kernels_premium'
+                warnings.append(f"High price ${price:,.0f}/t - likely premium kernels W180/W240")
+            else:
+                parsed['price_type'] = 'Unknown'
+                parsed['price_context'] = 'Price outside expected ranges'
+                parsed['price_segment'] = 'unknown'
+                warnings.append(f"Price ${price:,.0f}/t outside expected ranges")
+
+        # Add clarification footer for UI display
+        parsed['price_clarification'] = """PRICE REFERENCE GUIDE (Cambodia Cashew)
+
+Product Types:
+- RCN (Raw Cashew Nuts): Unprocessed, exported to Vietnam - $1,500-2,500/ton
+- Kernels: Processed cashew nuts - $6,000-7,000/ton (W320 grade)
+
+Quality Grades (Kernels):
+- W180 (Premium): Largest kernels, highest price ($7,000-9,000+)
+- W240 (High): Large kernels ($6,500-7,500)
+- W320 (Standard): Most traded grade ($6,000-7,000)
+- W450 (Economy): Smaller kernels, lower price ($5,500-6,500)
+
+Cambodia Context:
+- 2nd largest RCN producer globally
+- 90% exports to Vietnam for processing
+- ~500,000 farming families"""
+
+        parsed['price_warnings'] = warnings
+
+        # Log for debugging
+        if price:
+            logger.info(
+                f"Cambodia price validation: ${price:,.0f}/t -> {parsed.get('price_type')} "
+                f"({parsed.get('price_context')})"
+            )
+
         return parsed
 
     def _extract_section(self, text: str, start_marker: str, end_marker: str) -> str:

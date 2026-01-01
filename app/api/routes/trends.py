@@ -336,53 +336,111 @@ async def generate_scenario_analysis(
                 "---\n\n"
                 "Use macro indicators as supporting context for the analysis.\n\n"
             )
-        
-        # Build prompt based on scenario type
+
+        # Build Cambodia-specific context for cashew (Phase 1.3)
+        cambodia_block = ""
+        if commodity == 'cashew':
+            cambodia_block = """
+=== CAMBODIA MARKET POSITION (CASHEW) ===
+
+**Global Ranking:**
+- 2nd largest RCN producer worldwide (~850,000 tonnes/year)
+- Share of global production: ~15-18%
+- Main competitor: Ivory Coast (1st), India (3rd)
+
+**Export Structure:**
+- Total exports: ~815,000 tonnes RCN (2024)
+- Destination breakdown:
+  * Vietnam: 90% (processing, then re-export as kernels)
+  * China: 5% (direct consumption/processing)
+  * Others: 5%
+- Export value: $1.15-1.5 billion USD
+
+**Producer Profile:**
+- ~500,000 farming families
+- Main provinces: Kampong Thom, Kratie, Mondulkiri
+- Farmgate price sensitivity: High (livelihood dependent)
+
+**Market Vulnerabilities:**
+- Price-taker position: Vietnamese processors dictate RCN prices
+- No bargaining power: Limited domestic processing alternatives
+- FX exposure: USD/KHR fluctuations affect farmer revenues
+
+**Price Reference Guide:**
+- RCN FOB Cambodia: $1,500-2,500/ton (unprocessed)
+- Kernels FOB Vietnam: $6,000-7,000/ton (W320 grade)
+- Farmgate Cambodia: 3,000-5,000 KHR/kg
+
+===
+
+**CRITICAL FOR ALL SCENARIOS:** You MUST explicitly discuss:
+1. Impact on Cambodian farmer revenues (farmgate prices in KHR)
+2. Export earnings implications (RCN volumes x prices)
+3. Dependency on Vietnamese demand/processing
+4. Opportunities for domestic value addition
+
+"""
+
+        # Build prompt based on scenario type with Cambodia context
         scenario_prompts = {
             'pessimistic': f"""As a conservative market analyst, provide a PESSIMISTIC (bearish) analysis for {commodity} market.
 
-{docs_block}{macro_block}Current market data:
+{docs_block}{macro_block}{cambodia_block}Current market data:
 - Current price: ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
 - Overall trend: {overall_trend}
 
 Focus on:
-1. **Price Outlook**: Downside risks, potential price declines
-2. **Risk Factors**: Supply gluts, demand weakness, market headwinds
-3. **Bearish Scenarios**: What could go wrong in the next 3-6 months
+1. **Price Outlook**: Downside risks for BOTH RCN (Cambodia export) and Kernels (Vietnam)
+2. **Risk Factors for Cambodia**:
+   - Vietnamese processor margin squeeze = lower RCN prices
+   - Reduced Vietnamese demand = unsold RCN inventory
+   - Currency risk: KHR depreciation hurting farmer purchasing power
+   - Supply gluts from competing African producers
+3. **Bearish Scenarios for Cambodia**: What could hurt Cambodian farmers in 3-6 months
+4. **Farmer Impact**: Expected farmgate price range in KHR/kg under this scenario
 
-Be realistic but cautious. Keep response under 300 words.""",
+Be realistic but cautious. Distinguish RCN vs Kernel prices. Keep response under 350 words.""",
 
             'realistic': f"""As a balanced market analyst, provide a REALISTIC (neutral) analysis for {commodity} market.
 
-{docs_block}{macro_block}Current market data:
+{docs_block}{macro_block}{cambodia_block}Current market data:
 - Current price: ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
 - Overall trend: {overall_trend}
 
 Focus on:
-1. **Price Outlook**: Most likely price trajectory based on fundamentals
-2. **Balanced View**: Both upside and downside factors
-3. **Probable Scenarios**: What's most likely in the next 3-6 months
+1. **Price Outlook**: Most likely trajectory for BOTH RCN and Kernels
+2. **Balanced View for Cambodia**:
+   - Upside: Growing Vietnamese processing capacity, stable Chinese demand
+   - Downside: Competition from Ivory Coast/Nigeria, processor margin pressure
+   - Neutral: Status quo continuation with seasonal variations
+3. **Probable Scenarios**: What's most likely for Cambodian exports in 3-6 months
+4. **Farmer Outlook**: Expected farmgate price range in KHR/kg (realistic estimate)
 
-Be objective and data-driven. Keep response under 300 words.""",
+Be objective and data-driven. Distinguish RCN ($1,500-2,500) vs Kernel ($6,000-7,000) prices. Keep response under 350 words.""",
 
             'optimistic': f"""As an opportunity-focused market analyst, provide an OPTIMISTIC (bullish) analysis for {commodity} market.
 
-{docs_block}{macro_block}Current market data:
+{docs_block}{macro_block}{cambodia_block}Current market data:
 - Current price: ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
 - Overall trend: {overall_trend}
 
 Focus on:
-1. **Price Outlook**: Upside potential, bullish catalysts
-2. **Opportunities**: Strong demand drivers, supply constraints, growth factors
-3. **Bullish Scenarios**: What could drive prices higher in the next 3-6 months
+1. **Price Outlook**: Upside potential for BOTH RCN and Kernels
+2. **Opportunities for Cambodia**:
+   - Domestic processing expansion = higher value retention
+   - Bio/organic certification = premium pricing opportunities
+   - Supply constraints in Africa = increased demand for Cambodian RCN
+   - Vietnamese export growth to US/EU = higher RCN prices
+3. **Bullish Scenarios for Cambodia**: What could benefit Cambodian farmers in 3-6 months
+4. **Farmer Upside**: Best-case farmgate price range in KHR/kg under this scenario
 
-Be realistic but optimistic. Keep response under 300 words."""
+Be realistic but optimistic. Distinguish RCN vs Kernel prices. Keep response under 350 words."""
         }
         
         prompt = scenario_prompts.get(scenario_type, scenario_prompts['realistic'])

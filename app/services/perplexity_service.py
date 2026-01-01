@@ -33,7 +33,46 @@ class PerplexityService:
         Returns:
             Dict with response text and citations
         """
-        prompt = f"""Analyze current market conditions for {commodity} in Cambodia:
+        # Build commodity-specific prompt with Cambodia context
+        if commodity == 'cashew':
+            prompt = f"""Analyze current market conditions for {commodity} in Cambodia:
+
+CRITICAL: Always distinguish product types and price segments
+
+**Price Segmentation Requirements:**
+1. RCN (Raw Cashew Nuts) vs Kernels (processed)
+   - RCN FOB Cambodia: Typical range $1,500-2,500/ton
+   - Kernels FOB Vietnam: Typical range $6,000-7,000/ton (W320 grade)
+
+2. FOB vs Farmgate prices
+   - FOB = Export price (Sihanoukville port)
+   - Farmgate = Price paid to Cambodian farmers (KHR/kg)
+
+3. Quality grades (kernels only)
+   - Premium: W180, W240 (larger kernels, higher price)
+   - Standard: W320, W450 (smaller kernels, lower price)
+
+**Cambodia Context (MANDATORY):**
+- 2nd largest RCN producer globally (~850,000 tonnes/year)
+- 90% exports to Vietnam for processing
+- ~500,000 farming families depend on cashew income
+- Price-taker position (Vietnamese demand dictates RCN prices)
+
+**Data Points to Find:**
+A) RCN FOB Cambodia (USD/ton)
+B) Farmgate prices Cambodia (KHR/kg)
+C) Vietnam kernel prices by grade (USD/ton)
+D) Cambodia export volumes and destinations
+
+**Output Format:**
+- List ALL prices with EXACT product type, grade, and basis
+- Include date and source for each price point
+- If data not found, state clearly: "Data not available for [specific item]"
+
+Focus on factual data from last 7 days. Include citations."""
+        else:
+            # Rubber or other commodities - use simpler prompt
+            prompt = f"""Analyze current market conditions for {commodity} in Cambodia:
 1. Latest export prices (USD per ton)
 2. Key destination countries (Vietnam, China, Europe)
 3. Supply/demand dynamics
@@ -481,15 +520,66 @@ Answer:"""
 """
             )
 
+        # Add Cambodia-specific context for cashew
+        cambodia_context = ""
+        if commodity == 'cashew':
+            cambodia_context = """
+=== CAMBODIA MARKET POSITION (CASHEW) ===
+
+**Global Ranking:**
+- 2nd largest RCN producer worldwide (~850,000 tonnes/year)
+- Share of global production: ~15-18%
+- Main competitor: Ivory Coast (1st), India (3rd)
+
+**Export Structure:**
+- Total exports: ~815,000 tonnes RCN (2024)
+- Destination breakdown:
+  * Vietnam: 90% (processing, then re-export as kernels)
+  * China: 5% (direct consumption/processing)
+  * Others: 5%
+- Export value: $1.15-1.5 billion USD
+
+**Producer Profile:**
+- ~500,000 farming families
+- Main provinces: Kampong Thom, Kratie, Mondulkiri
+- Farmgate price sensitivity: High (livelihood dependent)
+
+**Market Vulnerabilities:**
+- Price-taker position: Vietnamese processors dictate RCN prices
+- No bargaining power: Limited domestic processing alternatives
+- FX exposure: USD/KHR fluctuations affect farmer revenues
+
+**Price Reference Guide:**
+- RCN FOB Cambodia: $1,500-2,500/ton (unprocessed)
+- Kernels FOB Vietnam: $6,000-7,000/ton (W320 grade)
+- Farmgate Cambodia: 3,000-5,000 KHR/kg
+
+===
+
+**IMPORTANT FOR ANALYSIS:** All scenarios must explicitly discuss:
+1. Cambodian farmer revenues (farmgate prices in KHR)
+2. Export earnings (RCN volumes x prices)
+3. Dependency on Vietnamese demand
+4. Opportunities for domestic value addition
+
+"""
+
         prompt_parts.append(
             f"""
-4. INTEGRATED SYNTHESIS (Combining ALL THREE Sources):
+{cambodia_context}4. INTEGRATED SYNTHESIS (Combining ALL THREE Sources):
 
    You MUST synthesize insights from:
    ✓ Twitter/X sentiment (5+ tweets)
    ✓ News articles (3-5 articles)
    ✓ Market price data
    ✓ Historical context from documents provided
+   ✓ Cambodia market position (for cashew)
+
+   PRICE CLARITY (CRITICAL FOR CASHEW):
+   - ALWAYS distinguish RCN (Raw Cashew Nuts) from Kernels (processed)
+   - RCN FOB Cambodia: $1,500-2,500/ton
+   - Kernels FOB Vietnam: $6,000-7,000/ton (W320)
+   - If only one price is found, specify which product type
 
    Overall Market Trend: Choose ONE from:
    - 'strong_bullish' (very positive, >7% gains expected)
@@ -507,9 +597,10 @@ Answer:"""
    - Risk factors mentioned across sources
    - Opportunities for market participants
    - Regional dynamics (Cambodia, Vietnam, India, Africa)
+   - Impact on Cambodian farmers (for cashew)
 
    Actionable Insights:
-   - For Farmers: When to sell, expected price ranges, risk mitigation
+   - For Cambodian Farmers: When to sell, expected farmgate prices in KHR, risk mitigation
    - For Traders: Entry/exit points based on multi-source signals
    - For Analysts: Key metrics to monitor, data gaps to investigate
 
@@ -517,6 +608,7 @@ CRITICAL REQUIREMENTS:
 ✓ You MUST extract at least 5 tweets (use fallback strategy if needed)
 ✓ You MUST find at least 3 news articles
 ✓ Be specific with numbers, dates, and sources
+✓ ALWAYS distinguish RCN vs Kernels prices (for cashew)
 ✓ If any data source is limited, clearly state why
 ✓ Cross-reference findings between Twitter, news, and price data
 ✓ Highlight consensus vs. divergence across sources
