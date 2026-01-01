@@ -499,3 +499,77 @@ async def test_search(query: str = "cashew market analysis", commodity: str = "c
             "error": str(e),
             "query": query
         }
+
+
+@router.post("/trigger-analysis")
+async def trigger_market_analysis(
+    commodity: str = None,
+    force_refresh: bool = True
+):
+    """
+    Trigger market analysis manually (admin endpoint, no rate limit).
+
+    - **commodity**: 'cashew', 'rubber', or None for both
+    - **force_refresh**: Force new analysis even if today's exists
+
+    This endpoint bypasses the rate limiter and is intended for:
+    - Manual triggers via admin scripts
+    - Testing and development
+    - Emergency refresh needs
+
+    Returns:
+        - status: "success" or "error"
+        - results: List of analysis results per commodity
+    """
+    try:
+        from app.services.supabase_service import SupabaseService
+        from app.services.perplexity_service import PerplexityService
+        from app.services.market_trends_service import MarketTrendsService
+
+        logger.info(f"[ADMIN] Manual analysis trigger: commodity={commodity}, force_refresh={force_refresh}")
+
+        # Initialize services
+        supabase = SupabaseService(settings.supabase_url, settings.supabase_key)
+        perplexity = PerplexityService(
+            api_key=settings.perplexity_api_key,
+            max_requests_per_month=1000
+        )
+        trends = MarketTrendsService(supabase, perplexity)
+
+        # Determine commodities to analyze
+        commodities = [commodity] if commodity else ["cashew", "rubber"]
+        results = []
+
+        for comm in commodities:
+            try:
+                logger.info(f"[ADMIN] Analyzing {comm}...")
+                result = await trends.analyze_and_store_trends(
+                    commodity=comm,
+                    force_refresh=force_refresh
+                )
+                results.append({
+                    "commodity": comm,
+                    "status": result.get("status"),
+                    "tweet_count": result.get("tweet_count", 0),
+                    "updated_at": result.get("updated_at")
+                })
+                logger.info(f"[ADMIN] ✅ {comm} analysis completed")
+            except Exception as e:
+                logger.error(f"[ADMIN] ❌ {comm} analysis failed: {e}")
+                results.append({
+                    "commodity": comm,
+                    "status": "error",
+                    "error": str(e)
+                })
+
+        success_count = sum(1 for r in results if r.get("status") == "success")
+
+        return {
+            "status": "success" if success_count > 0 else "error",
+            "message": f"{success_count}/{len(commodities)} analyses completed",
+            "results": results
+        }
+
+    except Exception as e:
+        logger.error(f"[ADMIN] Trigger analysis error: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
