@@ -8,6 +8,7 @@ from app.services.supabase_service import SupabaseService
 from app.services.perplexity_service import PerplexityService
 from app.services.market_trends_service import MarketTrendsService
 from app.services.public_prices_service import PublicPricesService
+from app.services.cambodia_macro_service import CambodiaMacroService
 from app.config import settings
 
 logger = logging.getLogger(__name__)
@@ -19,11 +20,12 @@ _supabase = None
 _perplexity = None
 _trends = None
 _public_prices = None
+_macro = None
 
 
 def get_services():
     """Get or initialize services."""
-    global _supabase, _perplexity, _trends, _public_prices
+    global _supabase, _perplexity, _trends, _public_prices, _macro
 
     if _supabase is None:
         _supabase = SupabaseService(settings.supabase_url, settings.supabase_key)
@@ -36,8 +38,10 @@ def get_services():
         _trends = MarketTrendsService(_supabase, _perplexity)
     if _public_prices is None:
         _public_prices = PublicPricesService()
+    if _macro is None:
+        _macro = CambodiaMacroService(_supabase)
 
-    return _supabase, _perplexity, _trends, _public_prices
+    return _supabase, _perplexity, _trends, _public_prices, _macro
 
 
 @router.get("/latest/{commodity}")
@@ -54,7 +58,7 @@ async def get_latest_trend(commodity: str):
     - AI-generated insights
     """
     try:
-        _, _, trends, _ = get_services()
+        _, _, trends, _, _ = get_services()
 
         result = await trends.get_latest_trend(commodity)
 
@@ -87,7 +91,7 @@ async def get_trend_history(
     Returns historical trend data for charting and analysis.
     """
     try:
-        _, _, trends, _ = get_services()
+        _, _, trends, _, _ = get_services()
 
         history = await trends.get_trend_history(commodity, days)
 
@@ -126,7 +130,7 @@ async def analyze_trends(
     Use this endpoint for manual/on-demand analysis only.
     """
     try:
-        _, _, trends, _ = get_services()
+        _, _, trends, _, _ = get_services()
 
         result = await trends.analyze_and_store_trends(
             commodity=commodity,
@@ -153,7 +157,7 @@ async def get_trend_alerts():
     Alerts are auto-generated when new trends are stored.
     """
     try:
-        _, _, trends, _ = get_services()
+        _, _, trends, _, _ = get_services()
 
         alerts = await trends.get_unread_alerts()
 
@@ -175,7 +179,7 @@ async def mark_alert_read(alert_id: str):
     - **alert_id**: UUID of the alert
     """
     try:
-        _, _, trends, _ = get_services()
+        _, _, trends, _, _ = get_services()
 
         success = await trends.mark_alert_read(alert_id)
 
@@ -202,7 +206,7 @@ async def get_trends_summary():
     - Active alerts count
     """
     try:
-        _, _, trends, _ = get_services()
+        _, _, trends, _, _ = get_services()
 
         commodities = ['cashew', 'rubber']
         summary = {}
@@ -252,7 +256,7 @@ async def get_public_prices(
     supplements the AI-analyzed trends data.
     """
     try:
-        _, _, _, public_prices = get_services()
+        _, _, _, public_prices, _ = get_services()
 
         history = public_prices.get_price_history(commodity, days)
         stats = public_prices.get_price_statistics(commodity, days)
@@ -294,7 +298,7 @@ async def generate_scenario_analysis(
     Cost: ~$0.005 per analysis.
     """
     try:
-        _, perplexity, _, public_prices = get_services()
+        _, perplexity, _, public_prices, macro_service = get_services()
         
         # Get price data if not provided
         if not price_data:
@@ -326,6 +330,14 @@ async def generate_scenario_analysis(
                 "---\n\n"
                 "Use the local documents as primary sources and cite them explicitly.\n\n"
             )
+
+        if not macro_context or not macro_context.strip():
+            if macro_service:
+                try:
+                    macro_context = await macro_service.build_macro_context_text(commodity)
+                except Exception as e:
+                    logger.warning("Macro context unavailable: %s", e)
+                    macro_context = None
 
         macro_used = bool(macro_context and macro_context.strip())
         macro_block = ""
@@ -378,6 +390,60 @@ async def generate_scenario_analysis(
 2. Export earnings implications (RCN volumes x prices)
 3. Dependency on Vietnamese demand/processing
 4. Opportunities for domestic value addition
+
+"""
+        elif commodity == 'rubber':
+            # Rubber-specific Cambodia context
+            cambodia_block = """
+=== CAMBODIA MARKET POSITION (RUBBER) ===
+
+**Global Ranking:**
+- Production: ~120,000 tons/year natural rubber (latex form)
+- 2nd producer in Southeast Asia (after Thailand, Vietnam)
+- Share of global production: ~0.9% (niche player)
+
+**Export Structure:**
+- Total exports: ~115,000 tons raw rubber (2024)
+- Destination breakdown:
+  * China: 60% (72,000 tons) - tire manufacturing
+  * Vietnam: 20% (24,000 tons) - processing
+  * Singapore: 10% (12,000 tons) - re-export
+  * Others: 10%
+- Export value: $200-250 million USD
+- Export product: Raw latex/sheets (NO processing in Cambodia)
+
+**Producer Profile:**
+- ~80,000 farming families
+- Main provinces: Kampong Cham (35%), Kratié (25%), Mondulkiri (20%)
+- Farmgate price sensitivity: VERY HIGH (rubber = primary cash crop)
+
+**Market Vulnerabilities:**
+- Price-taker position: Follows global TSR20/RSS3 benchmarks
+- No bargaining power: No domestic processing capacity
+- 60% dependency on China: Auto/tire industry demand risk
+- EV shift impact: Potential long-term demand reduction
+- FX exposure: USD/KHR fluctuations affect farmer revenues
+
+**Price Reference Guide (2024-2025):**
+- Global spot (TSR20): 170-190 cents/kg (1,700-1,900 USD/ton)
+- FOB Cambodia: 1,750-1,900 USD/ton (raw rubber)
+- Farmgate Cambodia: 4,500-6,000 KHR/kg (~1.11-1.48 USD/kg)
+
+**FX Impact Calculator:**
+- If USD/KHR = 4,050 (current): Farmgate ≈ 5,250 KHR/kg
+- If USD/KHR = 4,150 (+2.5%): Farmers gain +2.5% in KHR terms
+- If USD/KHR = 3,950 (-2.5%): Farmers lose -2.5% in KHR terms
+
+===
+
+**CRITICAL FOR ALL SCENARIOS:** You MUST explicitly discuss:
+1. Export revenue impact (115,000 tons × price = total USD)
+   Example: 115,000 t × $1,825/t = $209.9M
+2. Farmgate price effect (KHR/kg for 80,000 families)
+   Provinces: Kampong Cham, Kratié, Mondulkiri
+3. FX sensitivity (USD/KHR movements ± 2-3%)
+4. China dependency risk (60% buyer - what if auto demand drops?)
+5. Alternative markets feasibility (India, EU, other Asia)
 
 """
 

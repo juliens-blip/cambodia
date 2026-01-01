@@ -5,6 +5,7 @@ from typing import Dict, Any, Optional, List
 from datetime import datetime, date
 
 from app.services.supabase_service import SupabaseService
+from app.services.cambodia_macro_service import CambodiaMacroService
 from app.services.perplexity_service import PerplexityService
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,8 @@ class MarketTrendsService:
     def __init__(
         self,
         supabase: SupabaseService,
-        perplexity: PerplexityService
+        perplexity: PerplexityService,
+        macro_service: Optional[CambodiaMacroService] = None
     ):
         """
         Initialize market trends service.
@@ -27,6 +29,13 @@ class MarketTrendsService:
         """
         self.supabase = supabase
         self.perplexity = perplexity
+        self.macro_service = macro_service
+        if self.macro_service is None:
+            try:
+                self.macro_service = CambodiaMacroService(supabase)
+            except Exception as exc:
+                logger.warning("CambodiaMacroService unavailable: %s", exc)
+                self.macro_service = None
 
         logger.info("MarketTrendsService initialized")
 
@@ -60,12 +69,22 @@ class MarketTrendsService:
 
         logger.info(f"Analyzing market trends for {commodity}...")
 
-        # Step 1: Get Perplexity analysis
+        # Step 1: Build macro context if available
+        macro_context = ""
+        if self.macro_service:
+            try:
+                macro_context = await self.macro_service.build_macro_context_text(commodity)
+            except Exception as e:
+                logger.warning("Macro context fetch failed: %s", e)
+                macro_context = ""
+
+        # Step 2: Get Perplexity analysis
         try:
             analysis = await self.perplexity.analyze_market_trends(
                 commodity=commodity,
                 include_twitter=True,
-                include_stock=True
+                include_stock=True,
+                macro_context=macro_context
             )
 
         except Exception as e:
@@ -76,10 +95,10 @@ class MarketTrendsService:
                 'message': 'Failed to get market analysis'
             }
 
-        # Step 2: Parse AI response
-        parsed = self._parse_analysis(analysis['response_text'])
+        # Step 3: Parse AI response
+        parsed = self._parse_analysis(analysis['response_text'], commodity)
 
-        # Step 3: Build database record
+        # Step 4: Build database record
         trend_data = {
             'commodity': commodity,
             'trend_date': today.isoformat(),
@@ -112,16 +131,27 @@ class MarketTrendsService:
             'perplexity_citations': analysis.get('citations', [])
         }
 
-        # Step 4: Store in database
+        # Step 5: Store in database (update if today's record exists)
         try:
-            result = self.supabase.client.table("market_trends").insert(trend_data).execute()
+            table = self.supabase.client.table("market_trends")
+            existing = table.select("id").eq("commodity", commodity).eq(
+                "trend_date", trend_data["trend_date"]
+            ).execute().data
 
-            logger.info(f"Trend stored successfully for {commodity} on {today}")
+            if existing:
+                record_id = existing[0]["id"]
+                result = table.update(trend_data).eq("id", record_id).execute()
+                action = "updated"
+            else:
+                result = table.insert(trend_data).execute()
+                action = "inserted"
+
+            logger.info(f"Trend {action} successfully for {commodity} on {today}")
 
             return {
                 'status': 'success',
                 'data': result.data[0] if result.data else trend_data,
-                'message': f'New trend analysis completed for {commodity}'
+                'message': f'Trend analysis {action} for {commodity}'
             }
 
         except Exception as e:
@@ -133,12 +163,13 @@ class MarketTrendsService:
                 'data': trend_data  # Return data anyway
             }
 
-    def _parse_analysis(self, response_text: str) -> Dict[str, Any]:
+    def _parse_analysis(self, response_text: str, commodity: str = 'cashew') -> Dict[str, Any]:
         """
         Parse Perplexity AI response to extract structured data.
 
         Args:
             response_text: Raw AI response
+            commodity: Commodity name for validation
 
         Returns:
             Dict with extracted fields
@@ -311,6 +342,118 @@ class MarketTrendsService:
 
         # Validate prices for Cambodia cashew (Phase 1.2)
         parsed = self._validate_prices_cambodia(parsed, 'cashew')
+
+        # Validate prices for Cambodia rubber
+        if commodity == 'rubber':
+            parsed = self._validate_rubber_prices(parsed)
+
+        return parsed
+
+    def _validate_rubber_prices(self, parsed: Dict) -> Dict:
+        """
+        Validate rubber price ranges for Cambodia market.
+
+        Expected ranges (2024-2025):
+        - Global spot: 170-190 cents/kg (1,700-1,900 USD/ton)
+        - FOB Cambodia: 1,750-1,900 USD/ton
+        - Farmgate Cambodia: 4,500-6,000 KHR/kg
+
+        Args:
+            parsed: Parsed data dict from _parse_analysis
+
+        Returns:
+            Enhanced dict with price validation and context
+        """
+        warnings = []
+        price_usd_ton = parsed.get('stock_price_usd') or parsed.get('stock_price')
+
+        if price_usd_ton:
+            # Validate global spot price range
+            if price_usd_ton < 1400:
+                warnings.append(
+                    f"⚠️ Rubber price ${price_usd_ton:,.0f}/t very low "
+                    f"(expected 1,700-1,900 USD/ton)"
+                )
+                parsed['price_context'] = 'Below typical range - market downturn or data issue'
+            elif 1400 <= price_usd_ton < 1700:
+                warnings.append(
+                    f"⚠️ Rubber price ${price_usd_ton:,.0f}/t below typical range "
+                    f"(expected 1,700-1,900 USD/ton)"
+                )
+                parsed['price_context'] = 'Low end - bearish market conditions'
+            elif 1700 <= price_usd_ton <= 1900:
+                parsed['price_context'] = 'Normal range - stable market'
+            elif 1901 <= price_usd_ton <= 2500:
+                warnings.append(
+                    f"⚠️ Rubber price ${price_usd_ton:,.0f}/t above typical range "
+                    f"(expected 1,700-1,900 USD/ton)"
+                )
+                parsed['price_context'] = 'High end - bullish market conditions'
+            else:  # > 2500
+                warnings.append(
+                    f"⚠️ Rubber price ${price_usd_ton:,.0f}/t very high "
+                    f"(expected 1,700-1,900 USD/ton) - verify source"
+                )
+                parsed['price_context'] = 'Above typical range - exceptional market surge'
+
+            # Calculate farmgate estimate (assuming ~70% of FOB for farmers)
+            farmgate_usd_kg = (price_usd_ton / 1000) * 0.70
+            farmgate_khr_kg = farmgate_usd_kg * 4050  # USD/KHR rate
+
+            parsed['farmgate_estimate_usd_kg'] = round(farmgate_usd_kg, 2)
+            parsed['farmgate_estimate_khr_kg'] = round(farmgate_khr_kg, 0)
+
+            # Validate farmgate range
+            if farmgate_khr_kg < 3000:
+                warnings.append(
+                    f"⚠️ Estimated farmgate {farmgate_khr_kg:,.0f} KHR/kg very low "
+                    f"(expected 4,500-6,000 KHR/kg) - farmer crisis risk"
+                )
+            elif farmgate_khr_kg > 7000:
+                warnings.append(
+                    f"✓ Estimated farmgate {farmgate_khr_kg:,.0f} KHR/kg high "
+                    f"(expected 4,500-6,000 KHR/kg) - favorable for farmers"
+                )
+
+        # Add clarification footer for UI display
+        parsed['price_clarification'] = """RUBBER PRICE REFERENCE (Cambodia)
+
+Product Type:
+- Natural rubber (latex/sheet form)
+- Minimal processing in Cambodia (exported raw)
+
+Typical Ranges (2024-2025):
+- Global spot (TSR20): 170-190 cents/kg (1,700-1,900 USD/ton)
+- FOB Cambodia: ~1,750-1,900 USD/ton
+- Farmgate Cambodia: 4,500-6,000 KHR/kg (estimated)
+
+Market Structure:
+- Cambodia production: ~120,000 tons/year
+- 95% exports raw (China 60%, Vietnam 20%)
+- Price-taker (follows global TSR20/RSS3 benchmarks)
+- No domestic processing capacity
+
+FX Impact:
+- USD/KHR rate affects farmer revenues
+- KHR weakens → Farmers gain (more KHR per USD export)
+- KHR strengthens → Farmers lose (less KHR per USD export)
+
+Cambodia Context:
+- ~80,000 farming families
+- Main provinces: Kampong Cham (35%), Kratié (25%), Mondulkiri (20%)
+- Dependency: HIGH (rubber = primary cash crop)
+- Vulnerability: 60% exports to China (demand risk)"""
+
+        parsed['price_warnings'] = warnings
+        parsed['price_type'] = 'Natural Rubber (TSR20/RSS3)'
+
+        # Log for debugging
+        if price_usd_ton:
+            logger.info(
+                f"Rubber price validation: ${price_usd_ton:,.0f}/t → "
+                f"Farmgate est: {parsed.get('farmgate_estimate_khr_kg', 0):,.0f} KHR/kg "
+                f"({parsed.get('price_context', 'unknown')})"
+            )
 
         return parsed
 

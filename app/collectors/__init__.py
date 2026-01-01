@@ -5,6 +5,8 @@ from .mef_collector import MEFCollector
 from .wits_collector import WITSCollector
 from .odc_collector import ODCCollector
 from .gdrive_collector import GDriveCollector
+from .fao_giews_collector import FAOGIEWSCollector
+from .cac_collector import CACCollector
 
 __all__ = [
     "BaseCollector",
@@ -12,4 +14,6 @@ __all__ = [
     "WITSCollector",
     "ODCCollector",
     "GDriveCollector",
+    "FAOGIEWSCollector",
+    "CACCollector",
 ]

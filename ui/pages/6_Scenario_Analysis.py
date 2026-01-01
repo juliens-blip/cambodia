@@ -935,7 +935,132 @@ def display_key_tweet(twitter_data):
 
 
 
-def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: str):
+def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
+    """Display Cambodia-specific impact for rubber scenarios."""
+    import plotly.graph_objects as go
+
+    # Get current price from market data
+    current_price = market_data.get('statistics', {}).get('current', 1825) if market_data else 1825
+
+    # Scenario price adjustments
+    price_multipliers = {
+        'pessimistic': 0.85,  # -15% bearish scenario
+        'realistic': 1.0,     # Current price
+        'optimistic': 1.15    # +15% bullish scenario
+    }
+
+    scenario_price = current_price * price_multipliers.get(scenario_type, 1.0)
+
+    # Cambodia rubber constants
+    EXPORT_VOLUME_TONS = 115_000
+    FARMING_FAMILIES = 80_000
+
+    # Export destinations (tons)
+    export_destinations = {
+        'China': 72_000,      # 60%
+        'Vietnam': 24_000,    # 20%
+        'Singapore': 12_000,  # 10%
+        'Others': 7_000       # 10%
+    }
+
+    # Calculate export revenue
+    export_revenue_usd = EXPORT_VOLUME_TONS * scenario_price
+
+    # Calculate farmgate price (70% of FOB)
+    farmgate_usd_kg = (scenario_price / 1000) * 0.70
+    farmgate_khr_kg = farmgate_usd_kg * 4050  # Current exchange rate
+
+    # Display Cambodia Impact section
+    st.markdown("---")
+    st.markdown(f"### 🇰🇭 {t.get('cambodia_impact', 'Cambodia Impact')}")
+
+    # Key metrics
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        delta_pct = (price_multipliers.get(scenario_type, 1.0) - 1.0) * 100
+        st.metric(
+            "Export Revenue",
+            f"${export_revenue_usd / 1_000_000:.1f}M",
+            delta=f"{delta_pct:+.0f}%"
+        )
+        st.caption(f"{EXPORT_VOLUME_TONS:,} tons × ${scenario_price:.0f}/t")
+
+    with col2:
+        st.metric(
+            "Farmgate Price",
+            f"{farmgate_khr_kg:,.0f} KHR/kg",
+            delta=f"{delta_pct:+.0f}%"
+        )
+        st.caption(f"≈ ${farmgate_usd_kg:.2f}/kg")
+
+    with col3:
+        st.metric(
+            "Families Affected",
+            f"{FARMING_FAMILIES:,}",
+            delta=None
+        )
+        st.caption("Kampong Cham, Kratié, Mondulkiri")
+
+    with col4:
+        # Price per ton display
+        st.metric(
+            "Scenario Price",
+            f"${scenario_price:,.0f}/ton",
+            delta=f"{delta_pct:+.0f}%"
+        )
+        st.caption(f"Base: ${current_price:,.0f}/ton")
+
+    # Export destinations pie chart
+    st.markdown("#### 🌏 Export Destinations (2024)")
+
+    fig = go.Figure(data=[go.Pie(
+        labels=list(export_destinations.keys()),
+        values=list(export_destinations.values()),
+        hole=0.4,
+        marker=dict(colors=['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4']),
+        textinfo='label+percent',
+        textposition='outside',
+        hovertemplate='<b>%{label}</b><br>%{value:,} tons<br>%{percent}<extra></extra>'
+    )])
+
+    fig.update_layout(
+        showlegend=False,
+        height=350,
+        margin=dict(t=20, b=20, l=20, r=20)
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+    # FX Sensitivity table
+    st.markdown("#### 💱 FX Sensitivity (USD/KHR)")
+
+    fx_scenarios = [
+        {"Rate": "3,950", "Change": "-2.5%", "Farmgate KHR": int(farmgate_usd_kg * 3950)},
+        {"Rate": "4,050", "Change": "0%", "Farmgate KHR": int(farmgate_usd_kg * 4050)},
+        {"Rate": "4,150", "Change": "+2.5%", "Farmgate KHR": int(farmgate_usd_kg * 4150)},
+    ]
+
+    import pandas as pd
+    fx_df = pd.DataFrame(fx_scenarios)
+    st.dataframe(
+        fx_df,
+        hide_index=True,
+        use_container_width=True,
+        column_config={
+            "Rate": st.column_config.TextColumn("USD/KHR Rate", width="small"),
+            "Change": st.column_config.TextColumn("Change", width="small"),
+            "Farmgate KHR": st.column_config.NumberColumn(
+                "Farmgate KHR/kg",
+                format="%d"
+            )
+        }
+    )
+
+    st.caption(f"⚠️ Based on scenario price ${scenario_price:,.0f}/ton (70% FOB)")
+
+
+def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: str, commodity: str, market_data: dict):
     """Display a single scenario analysis."""
     scenario_emoji = {
         'pessimistic': '📉',
@@ -962,6 +1087,10 @@ def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: st
                 else:
                     # Fallback for unknown type
                     st.markdown(f"**[{i}]** {str(citation)[:300]}...")
+
+    # Display Cambodia impact section for rubber
+    if commodity == 'rubber':
+        display_cambodia_impact_rubber(market_data, scenario_type)
 
 
 # Sidebar refresh for macro indicators (after function definitions)
@@ -1057,7 +1186,7 @@ try:
                 macro_context
             )
 
-        display_scenario_analysis('pessimistic', pessimistic, '#ff4b4b')
+        display_scenario_analysis('pessimistic', pessimistic, '#ff4b4b', commodity, market_data)
 
     with tab2:
         st.markdown(f"## {t.get('scenario_realistic', '⚖️ Realistic Analysis')}")
@@ -1073,7 +1202,7 @@ try:
                 macro_context
             )
 
-        display_scenario_analysis('realistic', realistic, '#ffa500')
+        display_scenario_analysis('realistic', realistic, '#ffa500', commodity, market_data)
 
     with tab3:
         st.markdown(f"## {t.get('scenario_optimistic', '📈 Optimistic Analysis')}")
@@ -1089,7 +1218,7 @@ try:
                 macro_context
             )
 
-        display_scenario_analysis('optimistic', optimistic, '#00cc66')
+        display_scenario_analysis('optimistic', optimistic, '#00cc66', commodity, market_data)
 
 except Exception as e:
     st.error(f"{t.get('error', 'Error')}: {str(e)}")

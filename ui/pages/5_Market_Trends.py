@@ -463,18 +463,35 @@ try:
                 )
 
             with col2:
-                sentiment = latest.get('twitter_sentiment', 'neutral')
-                sentiment_emoji = {
-                    'bullish': '😊',
-                    'bearish': '😟',
-                    'neutral': '😐'
-                }.get(sentiment, '😐')
+                # Fix: Show "Non calculé" if no tweets found (tweet_count = 0)
+                tweet_count = latest.get('tweet_count', 0)
+                twitter_volume = latest.get('twitter_volume', 0)
 
-                st.metric(
-                    t.get('trends_twitter_sentiment', 'Twitter Sentiment'),
-                    f"{sentiment_emoji} {sentiment.capitalize()}",
-                    delta=None
-                )
+                # Use tweet_count if available, fallback to twitter_volume
+                actual_count = tweet_count if tweet_count is not None else twitter_volume
+
+                if actual_count == 0:
+                    # No tweets found - sentiment not calculated
+                    st.metric(
+                        t.get('trends_twitter_sentiment', 'Twitter Sentiment'),
+                        "❓ Non calculé",
+                        delta=None,
+                        help="Aucun tweet trouvé - sentiment non disponible"
+                    )
+                else:
+                    sentiment = latest.get('twitter_sentiment', 'neutral')
+                    sentiment_emoji = {
+                        'bullish': '😊',
+                        'bearish': '😟',
+                        'neutral': '😐'
+                    }.get(sentiment, '😐')
+
+                    st.metric(
+                        t.get('trends_twitter_sentiment', 'Twitter Sentiment'),
+                        f"{sentiment_emoji} {sentiment.capitalize()}",
+                        delta=None,
+                        help=f"Basé sur {actual_count} tweets analysés"
+                    )
 
             with col3:
                 price_change = latest.get('stock_change_pct')
@@ -533,7 +550,23 @@ try:
 
                 stock_price = latest.get('stock_price_usd')
                 if stock_price:
+                    # Display price with source
+                    price_type = latest.get('price_type', 'Price')
+                    price_context = latest.get('price_context', '')
+
                     st.markdown(f"**{t.get('trends_price', 'Price')}:** ${stock_price:,.2f}/ton")
+
+                    if commodity == 'rubber':
+                        # Show conversion for rubber: USD/ton → cents/kg
+                        price_cents_kg = stock_price / 10
+                        st.markdown(f"*(≈ {price_cents_kg:.1f} cents/kg)*")
+                        st.caption("Source: TradingEconomics / Market data")
+                    else:
+                        # Cashew: Show product type (RCN vs Kernels)
+                        if price_type:
+                            st.caption(f"Type: {price_type}")
+                        if price_context:
+                            st.caption(price_context)
 
                 stock_change = latest.get('stock_change_pct')
                 if stock_change is not None:
@@ -543,6 +576,23 @@ try:
                 stock_volume = latest.get('stock_volume')
                 if stock_volume:
                     st.markdown(f"**{t.get('trends_volume', 'Volume')}:** {stock_volume:,}")
+
+                # Rubber-specific: Show farmgate estimate
+                if commodity == 'rubber':
+                    farmgate_khr = latest.get('farmgate_estimate_khr_kg')
+                    farmgate_usd = latest.get('farmgate_estimate_usd_kg')
+
+                    if farmgate_khr or farmgate_usd:
+                        st.markdown("---")
+                        st.markdown("**Farmgate Estimate (Cambodia):**")
+
+                        if farmgate_khr:
+                            st.markdown(f"• {farmgate_khr:,.0f} KHR/kg")
+                        if farmgate_usd:
+                            st.markdown(f"• ${farmgate_usd:.2f} USD/kg")
+
+                        st.caption("⚠️ Estimated from global prices")
+                        st.caption("(~70% of FOB, based on Thailand -12%)")
 
             st.markdown("---")
 

@@ -69,12 +69,90 @@ D) Cambodia export volumes and destinations
 - Include date and source for each price point
 - If data not found, state clearly: "Data not available for [specific item]"
 
+**Data Latency Notes:**
+- FAO GIEWS/FPMA prices are typically monthly (label as monthly if used)
+- WITS/Comtrade trade data is annual (label as annual if used)
+
 Focus on factual data from last 7 days. Include citations."""
+        elif commodity == 'rubber':
+            # Cambodia-specific rubber prompt
+            prompt = f"""Analyze rubber market for Cambodia (natural rubber production):
+
+🔍 CRITICAL: Cambodia-specific context required
+
+**Cambodia Rubber Profile:**
+- Production: ~120,000 tons/year natural rubber (latex form)
+- Global rank: 2nd in Southeast Asia (after Thailand, Vietnam)
+- Exports: ~115,000 tons (95% of production exported raw)
+- Main destinations: China (60%), Vietnam (20%), Singapore (10%)
+- Processing: Minimal (exports raw latex/sheets, no value addition)
+
+**Data Points to Find:**
+
+A) Global rubber prices (TSR20/RSS3 benchmarks)
+   - Search: "rubber price TSR20" OR "natural rubber price Singapore"
+   - Expected range: 170-190 cents/kg (1,700-1,900 USD/ton)
+   - Source: TradingEconomics, SGX, commodity exchanges
+   - Conversion: 1 cent/kg = 10 USD/ton
+
+B) Cambodia export data
+   - Search: "Cambodia rubber exports 2024" site:wits.worldbank.org
+   - Search: "Cambodia natural rubber China" (volumes, destinations)
+   - Reference: WITS HS code 4001 (Natural rubber, latex form)
+   - Expected volumes: 100,000-150,000 tons/year
+   - Expected export value: $200-250 million USD
+
+C) Farmgate prices Cambodia
+   - Search: "Cambodia rubber farmer price KHR"
+   - Search: FAO GIEWS Thailand rubber farmgate (for proxy)
+   - Estimation method: Thailand price × 0.85-0.90 (Cambodia 10-15% lower)
+   - Expected range: 4,500-6,000 KHR/kg
+   - Conversion: KHR to USD at ~4,050 KHR/USD
+
+D) China demand (main buyer - 60% of exports)
+   - Search: "China rubber imports 2024"
+   - Search: "China tire production forecast" OR "China auto industry"
+   - Impact: Auto industry growth +3-5% = bullish for rubber
+   - EV shift impact: May reduce long-term tire demand
+
+E) Macro Cambodia context
+   - USD/KHR rate impact (current ~4,050)
+   - Farmer income in local currency
+   - If KHR weakens: Farmers gain (more KHR per USD export)
+   - If KHR strengthens: Farmers lose (less KHR per USD export)
+
+**Output Format:**
+- Global spot price: X cents/kg (Y USD/ton) - Source: [name] - Date: [date]
+- Cambodia exports: XX,XXX tons @ $YYY/ton - Source: WITS - Year: [year]
+- Farmgate estimate: X,XXX KHR/kg (based on Thailand FAO -12%) - Disclaimer: Estimated
+- China demand trend: +X% imports - Source: China Customs
+
+**Cambodia Context (MANDATORY - Include in analysis):**
+
+For each scenario/analysis, discuss:
+1. Export revenue impact (tons × price = total USD)
+   - Example: 115,000 tons × $1,825/t = $209.9M export revenue
+2. Farmgate price effect (KHR/kg for ~80,000 farming families)
+   - Provinces: Kampong Cham (35%), Kratié (25%), Mondulkiri (20%)
+3. FX sensitivity (USD/KHR movements)
+   - If USD/KHR rises to 4,150: Farmers gain +2.5% in local terms
+   - If USD/KHR falls to 3,950: Farmers lose -2.5% in local terms
+4. Dependency risk (60% China exposure)
+   - What if China auto demand drops?
+   - Alternative markets (India, EU)?
+
+**Market Structure Notes:**
+- Cambodia = price-taker (follows global TSR20/RSS3 benchmarks)
+- No domestic processing capacity (unlike Thailand/Vietnam/Indonesia)
+- 95% exports raw → vulnerable to global price swings
+- Farmers highly dependent on rubber as primary cash crop
+
+Focus on factual data from last 30 days. Include citations and sources."""
         else:
-            # Rubber or other commodities - use simpler prompt
+            # Generic commodity prompt
             prompt = f"""Analyze current market conditions for {commodity} in Cambodia:
 1. Latest export prices (USD per ton)
-2. Key destination countries (Vietnam, China, Europe)
+2. Key destination countries
 3. Supply/demand dynamics
 4. Geopolitical factors affecting trade
 5. Quality grades impact on pricing
@@ -362,7 +440,8 @@ Answer:"""
         self,
         commodity: str,
         include_twitter: bool = True,
-        include_stock: bool = True
+        include_stock: bool = True,
+        macro_context: Optional[str] = None
     ) -> Dict[str, Any]:
         """
         Analyze market trends from Twitter/X and stock market data.
@@ -377,6 +456,7 @@ Answer:"""
             commodity: 'cashew' or 'rubber'
             include_twitter: Include Twitter/X sentiment analysis
             include_stock: Include stock market data
+            macro_context: Optional macro indicators context (MEF/NBC/CSX)
 
         Returns:
             Dict with structure:
@@ -517,6 +597,17 @@ Answer:"""
      * Geopolitical factors
      * Currency fluctuations
    - Regional price differences (Vietnam, India, Africa)
+"""
+            )
+
+        if macro_context:
+            prompt_parts.append(
+                f"""
+MACRO INDICATORS (MEF/NBC/CSX):
+
+{macro_context}
+
+Use these indicators as supporting context for Cambodia market conditions.
 """
             )
 
