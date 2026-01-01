@@ -231,6 +231,7 @@ Fixes:
 - Supabase price upsert now uses select+update/insert to avoid partial index conflicts.
 - Market trends storage now updates existing (commodity, trend_date) rows instead of failing on duplicates.
 - Scenario prompts now label cashew benchmark price as kernel FOB Vietnam (W320) to avoid ambiguity.
+- Market trends now use Cambodia timezone date to avoid stale trend_date after local day rollover.
 
 Ingestion (monthly_free_sources_collection):
 - Completed with summary: prices=3, production=3, documents=6.

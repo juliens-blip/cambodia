@@ -3,10 +3,12 @@ import logging
 import re
 from typing import Dict, Any, Optional, List
 from datetime import datetime, date
+from zoneinfo import ZoneInfo
 
 from app.services.supabase_service import SupabaseService
 from app.services.cambodia_macro_service import CambodiaMacroService
 from app.services.perplexity_service import PerplexityService
+from app.config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +56,7 @@ class MarketTrendsService:
         Returns:
             Dict with analysis results and storage status
         """
-        today = date.today()
+        today = self._get_local_date()
 
         # Check if analysis already exists for today
         if not force_refresh:
@@ -551,7 +553,7 @@ Cambodia Context:
 
     async def _get_today_trend(self, commodity: str) -> Optional[Dict[str, Any]]:
         """Get today's trend if it exists."""
-        today = date.today().isoformat()
+        today = self._get_local_date().isoformat()
 
         try:
             result = self.supabase.client.table("market_trends").select("*").eq(
@@ -565,6 +567,16 @@ Cambodia Context:
             logger.error(f"Error checking existing trend: {e}")
 
         return None
+
+    def _get_local_date(self) -> date:
+        """Return today's date in configured timezone (defaults to system date)."""
+        tz_name = getattr(settings, "timezone", None)
+        if tz_name:
+            try:
+                return datetime.now(ZoneInfo(tz_name)).date()
+            except Exception as exc:
+                logger.warning("Invalid timezone %s: %s", tz_name, exc)
+        return date.today()
 
     async def get_latest_trend(self, commodity: str) -> Optional[Dict[str, Any]]:
         """
