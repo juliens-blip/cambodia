@@ -57,12 +57,14 @@ class MarketTrendsService:
             Dict with analysis results and storage status
         """
         today = self._get_local_date()
+        print(f"[MARKET_TRENDS] analyze_and_store_trends called: commodity={commodity}, force_refresh={force_refresh}, today={today}", flush=True)
 
         # Check if analysis already exists for today
         if not force_refresh:
             existing = await self._get_today_trend(commodity)
             if existing:
                 logger.info(f"Trend already exists for {commodity} on {today}")
+                print(f"[MARKET_TRENDS] Returning existing analysis for {commodity} on {today}", flush=True)
                 return {
                     'status': 'exists',
                     'data': existing,
@@ -70,6 +72,7 @@ class MarketTrendsService:
                 }
 
         logger.info(f"Analyzing market trends for {commodity}...")
+        print(f"[MARKET_TRENDS] Starting fresh analysis for {commodity} (force_refresh={force_refresh})", flush=True)
 
         # Step 1: Build macro context if available
         macro_context = ""
@@ -149,6 +152,7 @@ class MarketTrendsService:
                 action = "inserted"
 
             logger.info(f"Trend {action} successfully for {commodity} on {today}")
+            print(f"[MARKET_TRENDS] ✅ Trend {action} for {commodity} on {today}", flush=True)
 
             return {
                 'status': 'success',
@@ -158,6 +162,7 @@ class MarketTrendsService:
 
         except Exception as e:
             logger.error(f"Error storing trend: {e}")
+            print(f"[MARKET_TRENDS] ❌ Storage failed for {commodity}: {e}", flush=True)
             return {
                 'status': 'error',
                 'error': str(e),

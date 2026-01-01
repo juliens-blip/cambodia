@@ -912,19 +912,21 @@ try:
 
         with col1:
             force_refresh = st.checkbox(
-                t.get('force_refresh', 'Force refresh (skip today\'s check)') if language == "fr" else "Force refresh (skip today's check)",
-                value=False
+                t.get('force_refresh', 'Force refresh (always get fresh data)') if language == "fr" else "Force refresh (always get fresh data)",
+                value=True,  # Default to True - user clicking manual trigger wants fresh data
+                help="Recommended: always enabled for manual triggers"
             )
 
         with col2:
             if st.button(f"🚀 {t.get('trigger_analysis', 'Trigger New Analysis')}" if language == "fr" else "🚀 Trigger New Analysis", type="primary"):
-                with st.spinner(t.get('analyzing', 'Analyzing market trends...') if language == "fr" else "Analyzing market trends... This may take 5-10 seconds"):
+                with st.spinner(t.get('analyzing', 'Analyzing market trends...') if language == "fr" else "Analyzing market trends... This may take 30-60 seconds"):
                     try:
                         analyze_url = f"{BASE_URL}/analyze/{commodity}"
+                        # Increased timeout to 90s - Perplexity can take 30-60s
                         analyze_response = client.post(
                             analyze_url,
                             params={"force_refresh": force_refresh},
-                            timeout=30.0
+                            timeout=90.0
                         )
                         analyze_response.raise_for_status()
                         result = analyze_response.json()
@@ -933,6 +935,9 @@ try:
 
                         if status == 'success':
                             st.success(f"✅ {t.get('success', 'Analysis completed successfully!')}")
+                            # Show the new date
+                            new_date = result.get('data', {}).get('trend_date', 'N/A')
+                            st.info(f"New analysis date: {new_date}")
                             st.balloons()
                             st.rerun()
                         elif status == 'exists':
@@ -940,8 +945,12 @@ try:
                         else:
                             st.error(f"❌ {t.get('error', 'Analysis failed')}: {result.get('message', 'Unknown error')}")
 
+                    except httpx.TimeoutException:
+                        st.error("⏱️ Request timed out. The analysis may still be running in the background. Please refresh in 30 seconds.")
+                    except httpx.HTTPStatusError as e:
+                        st.error(f"❌ API Error ({e.response.status_code}): {e.response.text[:200]}")
                     except Exception as e:
-                        st.error(f"❌ {t.get('error', 'Error')}: {e}")
+                        st.error(f"❌ {t.get('error', 'Error')}: {type(e).__name__}: {e}")
 
 except httpx.HTTPError as e:
     st.error(f"{t.get('error', 'API Error')}: {e}")
