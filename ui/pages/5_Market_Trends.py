@@ -80,6 +80,43 @@ def format_number(value, decimals: int = 0) -> str:
     return f"{value:,.{decimals}f}"
 
 
+def normalize_display_text(text: str) -> str:
+    """Collapse obvious character-split artifacts while preserving paragraphs."""
+    if not isinstance(text, str) or "\n" not in text:
+        return text
+
+    lines = text.splitlines()
+    if not lines:
+        return text
+
+    rebuilt = []
+    buffer = []
+
+    def flush_buffer():
+        if not buffer:
+            return
+        if len(buffer) >= 6 and all(len(item) <= 4 and " " not in item for item in buffer):
+            rebuilt.append("".join(buffer))
+        else:
+            rebuilt.extend(buffer)
+        buffer.clear()
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped == "":
+            flush_buffer()
+            rebuilt.append("")
+            continue
+        if len(stripped) <= 4 and " " not in stripped:
+            buffer.append(stripped)
+            continue
+        flush_buffer()
+        rebuilt.append(line)
+
+    flush_buffer()
+    return "\n".join(rebuilt)
+
+
 def validate_trend_label(ai_analysis: str, current_label: str, price_change_pct: float = None) -> str:
     """
     Validate that trend label matches AI analysis content and price change.
@@ -436,7 +473,7 @@ try:
             with col1:
                 # Phase 1.4: Validate trend label against AI analysis content
                 raw_trend = latest.get('overall_trend', 'neutral')
-                ai_analysis = latest.get('ai_analysis', '')
+                ai_analysis = normalize_display_text(latest.get('ai_analysis', ''))
                 price_change = latest.get('stock_change_pct')
 
                 # Validate coherence between label and content
@@ -534,7 +571,7 @@ try:
                 twitter_volume = latest.get('twitter_volume', 0)
                 st.markdown(f"**{t.get('trends_tweet_volume', 'Tweet Volume (48h)')}:** {twitter_volume} {t.get('tweets', 'tweets')}")
 
-                twitter_summary = latest.get('twitter_summary', '')
+                twitter_summary = normalize_display_text(latest.get('twitter_summary', ''))
                 if twitter_summary:
                     st.markdown(f"**{t.get('trends_summary', 'Summary')}:** {twitter_summary}")
 
@@ -543,7 +580,8 @@ try:
                 if top_tweets:
                     st.markdown(f"**{t.get('trends_top_tweets', 'Top Tweets')}:**")
                     for idx, tweet in enumerate(top_tweets[:5], 1):
-                        st.markdown(f"{idx}. *\"{tweet}\"*")
+                        cleaned_tweet = normalize_display_text(tweet)
+                        st.markdown(f"{idx}. *\"{cleaned_tweet}\"*")
 
             with col2:
                 st.markdown(f"### 📊 {t.get('trends_stock_market', 'Stock Market')}")
@@ -602,7 +640,8 @@ try:
 
             if key_factors:
                 for idx, factor in enumerate(key_factors, 1):
-                    st.markdown(f"{idx}. {factor}")
+                    cleaned_factor = normalize_display_text(factor)
+                    st.markdown(f"{idx}. {cleaned_factor}")
             else:
                 st.info(t.get('trends_no_data', 'No key factors extracted'))
 
@@ -610,7 +649,7 @@ try:
 
             # AI Analysis
             with st.expander(f"🤖 {t.get('trends_ai_analysis', 'Full AI Analysis')}", expanded=False):
-                ai_analysis = latest.get('ai_analysis', '')
+                ai_analysis = normalize_display_text(latest.get('ai_analysis', ''))
                 if ai_analysis:
                     st.markdown(ai_analysis)
                 else:
