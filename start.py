@@ -281,13 +281,13 @@ def patch_streamlit_index_html() -> None:
 
     if cache_bust_marker not in updated:
         updated = re.sub(
-            r'src="\\./static/js/index\\.([^\"]+)\\.js"',
+            r'src="./static/js/index\.([^\"]+)\.js"',
             rf'src="./static/js/index.\1.js?{cache_bust_query}"',
             updated,
             count=1,
         )
         updated = re.sub(
-            r'href="\\./static/css/index\\.([^\"]+)\\.css"',
+            r'href="./static/css/index\.([^\"]+)\.css"',
             rf'href="./static/css/index.\1.css?{cache_bust_query}"',
             updated,
             count=1,
