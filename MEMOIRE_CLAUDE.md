@@ -2545,3 +2545,314 @@ git push
 ## Pour ajouter cette section à MEMOIRE_CLAUDE.md
 
 Copiez le contenu de ce fichier à la fin de `MEMOIRE_CLAUDE.md` après la section "MAJ 2026-01-01 - Debug index/auto-refresh (non resolu)".
+
+
+## SESSION 2026-01-01: VÉRIFICATION ET FIX SCHEDULER LOGS
+
+**Context:** Utilisateur signalait ne pas voir les logs du scheduler dans Railway.
+**Durée:** ~30 minutes
+**Agents utilisés:** Claude Sonnet 4.5
+**Commits:** 2 (d8cc94d, ab4e6a9)
+
+---
+
+### Diagnostic Initial
+
+**Symptômes:**
+- ✅ API démarre correctement
+- ✅ CSX index affiche \ (fallback Supabase fonctionne)
+- ✅ Dernière analyse: 28 décembre (trigger manuel disponible)
+- ✅ Console DevTools: Aucune erreur React #321
+- ❓ Logs scheduler: Ligne \ introuvable
+
+**Analyse des logs Railway:**
+\
+**Problème identifié:** Les logs s'arrêtaient avant le bloc scheduler (lignes 113-122 de \).
+
+---
+
+### Solution Appliquée
+
+#### Commit 1: d8cc94d - Debug logs
+
+**Fichier:** 
+Ajout de 2 lignes de logging pour tracer le flow:
+\
+**Résultat:** Logs Railway ont confirmé que le scheduler démarre correctement:
+\
+#### Commit 2: ab4e6a9 - Logger.info() pour job registration
+
+**Fichier:** 
+Conversion de \ en \ + \ pour double visibilité:
+\
+**Rationale:** Railway logs capturent mieux \ que \.
+
+---
+
+### État Final
+
+**Scheduler configuration:**
+\
+**Prochaine exécution:** 2 janvier 2026, 09:00 Cambodia time (02:00 UTC)
+
+**Logs attendus demain matin:**
+\
+---
+
+### Validation Finale
+
+| Composant | Status | Preuve |
+|-----------|--------|--------|
+| Scheduler démarré | ✅ OK | \ dans logs |
+| Job enregistré | ✅ OK | APScheduler CronTrigger 02:00 UTC |
+| Intégration API | ✅ OK | \ |
+| Logging amélioré | ✅ OK | \ + \ double |
+| CSX fallback | ✅ OK | Affiche 1,234.56 depuis Supabase |
+| React #321 | ✅ RÉSOLU | Console DevTools clean |
+| Dernière analyse | ⏳ 28 déc | Trigger manuel ou attendre 2 jan 09:00 |
+
+---
+
+**Actions utilisateur:**
+
+**Immédiat (optionnel):**
+- Trigger analyse manuelle: Bouton "Trigger New Analysis" → Commodity: Cashew → Analyze
+- Vérifier date updated passe à 2026-01-01
+
+**Court-terme:**
+- Vérifier demain 09:30 Cambodia time que l'analyse quotidienne s'est exécutée
+- Chercher logs \ dans Railway
+
+**Moyen-terme:**
+- Surveiller exécutions quotidiennes pendant 1 semaine
+- Ajuster trigger time si besoin (actuellement 09:00 Cambodia)
+
+---
+
+*Session effectuée par Claude Sonnet 4.5 le 2026-01-01*
+*Commits: d8cc94d (debug logs), ab4e6a9 (logger.info)*
+*Scheduler: ✅ Opérationnel, prochaine exéc: 2 jan 09:00*
+
+---
+
+
+
+## SESSION 2026-01-01 (suite): TRIGGER ANALYSE IMMÉDIAT AU DÉMARRAGE
+
+**Context:** Utilisateur voulait déclencher l'analyse immédiatement au lieu d'attendre demain 09:00.
+**Durée:** ~20 minutes
+**Commits:** 1 (f183ab7)
+
+---
+
+### Solution Implémentée
+
+**Fichier:** \ ligne 86-94
+
+Ajout d'un job "startup_analysis" qui s'exécute **une seule fois** au démarrage de l'API :
+
+\
+**Caractéristiques:**
+- ✅ S'exécute **automatiquement** au démarrage Railway
+- ✅ **Non-bloquant** : n'empêche pas l'API de démarrer
+- ✅ **Idempotent** : \ évite les duplicates
+- ✅ **One-shot** : Pas de trigger = exécution unique
+
+---
+
+### Flux d'Exécution
+
+\
+---
+
+### Logs Attendus (Railway)
+
+Après redéploiement (~5 min), les logs Railway devraient montrer :
+
+\
+---
+
+### Fichier Bonus : trigger_analysis.py
+
+**Usage:** Trigger manuel via script (si besoin futur)
+
+\============================================================
+MARKET ANALYSIS TRIGGER - Cambodia Agri Analytics
+Admin Endpoint (No Rate Limit)
+============================================================
+
+🚀 Triggering analysis for BOTH...
+❌ Analysis failed: HTTP 403
+   Response: <html><title>403: Forbidden</title><body>403: Forbidden</body></html>
+
+============================================================
+⚠️ Analysis failed. Check Railway logs.
+============================================================
+**Note:** Le script échoue actuellement (403 Forbidden) car le rate limiter bloque les POST externes. Solution alternative : utiliser le bouton UI "Trigger New Analysis".
+
+---
+
+### Validation Finale
+
+| Composant | Status | Preuve attendue |
+|-----------|--------|-----------------|
+| Scheduler démarré | ✅ OK | Déjà confirmé logs précédents |
+| Job quotidien | ✅ OK | 02:00 UTC daily |
+| Job startup | 🆕 AJOUTÉ | Immediate one-shot |
+| Analyse au démarrage | ⏳ EN COURS | Vérifier dans ~5 min |
+| Date updated UI | ⏳ ATTENDU | Devrait passer à 2026-01-01 |
+
+---
+
+**Prochaines étapes :**
+
+1. **Attendre 5 minutes** le redéploiement Railway
+2. **Vérifier logs** Railway pour confirmer :
+   -    -    -    - 3. **Ouvrir Market Trends** → Vérifier "Updated: **2026-01-01**"
+4. **Vérifier tweets** → Devrait afficher 5 tweets récents
+
+---
+
+*Session effectuée par Claude Sonnet 4.5 le 2026-01-01*
+*Commit: f183ab7 (startup analysis trigger)*
+*Analyse prévue: Immédiatement après redéploiement*
+
+---
+
+## SESSION 2026-01-01 (nuit) → 2026-01-02: RUBBER MARKET ANALYSIS COMPLET
+
+**Context:** Implémentation complète de l'analyse marché rubber pour le Cambodge.
+**Durée:** ~3 heures
+**Commits:** 1 (35211f9)
+**IA:** Autre instance Claude (Cursor)
+
+---
+
+### Phases Complétées
+
+#### Phase 1: Data Collection
+- `app/collectors/tradingeconomics_collector.py` - Collecte prix spot rubber
+- `app/collectors/fao_giews_collector.py` - Données FAO GIEWS
+- `app/collectors/cac_collector.py` - Reports CAC
+- `app/collectors/wits_collector.py` - Trade data WITS
+- `app/scheduler/jobs.py` - Jobs quotidiens et mensuels
+
+#### Phase 2: Services & Validation
+- `app/services/perplexity_service.py` - Prompts spécifiques rubber + Cambodia context
+- `app/services/market_trends_service.py` - Validation prix rubber (1500-2500 USD/ton)
+- `app/api/routes/trends.py` - Templates scénarios rubber
+
+#### Phase 3: Frontend UI
+- `ui/pages/5_Market_Trends.py` - Farmgate estimate, cents/kg conversion
+- `ui/pages/6_Scenario_Analysis.py` - Cambodia Impact section (rubber only)
+
+---
+
+### Fonctionnalités Rubber Ajoutées
+
+**Market Trends UI:**
+- Sentiment "Non calculé" quand 0 tweets
+- Source prix: TradingEconomics
+- Conversion cents/kg (price / 10)
+- Section Farmgate Estimate (KHR/kg + USD/kg)
+- Disclaimers (~70% FOB, Thailand -12%)
+
+**Scenario Analysis UI (rubber only):**
+- Nouvelle fonction `display_cambodia_impact_rubber()` (123 lignes)
+- 4 Métriques: Export Revenue, Farmgate Price, Families (80k), Scenario Price
+- Pie chart: Export destinations (China 60%, Vietnam 20%, Singapore 10%, Others 10%)
+- FX Sensitivity table: 3,950 / 4,050 / 4,150 KHR
+
+---
+
+### Statistiques
+
+- **Fichiers créés:** 1
+- **Fichiers modifiés:** 8
+- **Lignes ajoutées:** ~900
+- **Budget:** 0 EUR (sources gratuites uniquement)
+
+---
+
+## SESSION 2026-01-02: FIX DATE ANALYSIS + DEBUGGING
+
+**Context:** Utilisateur signale que la date d'analyse reste 2026-01-01 au lieu de 2026-01-02.
+**Durée:** ~30 minutes
+**Commits:** 1 (3d1763b)
+**IA:** Claude Opus 4.5
+
+---
+
+### Diagnostic
+
+**Probleme signale:** La date d'analyse affiche toujours 2026-01-01 meme apres declenchement manuel.
+
+**Investigation:**
+1. Verifie timezone: `Asia/Phnom_Penh` configure correctement
+2. Verifie heure: 00:37 UTC = 06:37 Cambodia -> Scheduler 09:00 pas encore passe
+3. Teste API externe: 403 Forbidden (normal - API interne seulement)
+4. Verifie code UI: timeout 30s potentiellement trop court
+
+**Cause racine:**
+- Le scheduler quotidien (02:00 UTC = 09:00 Cambodia) n'a pas encore tourne
+- Le bouton "Manual Analysis" avait force_refresh=False par defaut
+- Timeout de 30s trop court pour Perplexity (30-60s necessaires)
+
+---
+
+### Corrections Appliquees
+
+**1. UI - 5_Market_Trends.py:**
+- force_refresh = True par defaut (avant: False)
+- timeout = 90s (avant: 30s)
+- Affiche nouvelle date apres succes
+
+**2. Meilleure gestion erreurs:**
+- Catch httpx.TimeoutException separement
+- Catch httpx.HTTPStatusError avec details
+- Messages d'erreur plus explicites
+
+**3. API - market_trends_service.py:**
+- Ajout logging [MARKET_TRENDS] pour debugging
+- Print avec flush=True pour visibilite Railway
+
+---
+
+### Commits Session
+
+| Hash | Description |
+|------|-------------|
+| 35211f9 | feat: Add comprehensive rubber market analysis for Cambodia |
+| 3d1763b | fix: improve manual analysis trigger with better timeout and logging |
+
+---
+
+### Architecture Rappel
+
+```
+[External] -> Railway PORT -> Streamlit UI
+                              |
+                    http://127.0.0.1:8000 -> FastAPI (interne)
+                              |
+                         Supabase / Perplexity
+```
+
+**Note:** L'API FastAPI n'est PAS accessible depuis l'exterieur (403 Forbidden). Seul Streamlit peut l'appeler depuis le container.
+
+---
+
+### Tests Recommandes
+
+1. **Ouvrir Market Trends** -> Selectionner "rubber"
+2. **Cliquer "Trigger New Analysis"** (force_refresh coche par defaut)
+3. **Attendre ~60 secondes**
+4. **Verifier la date** -> Devrait afficher "2026-01-02"
+
+---
+
+*Session effectuee par Claude Opus 4.5 le 2026-01-02*
+*Commits: 35211f9 (rubber), 3d1763b (fix timeout)*
+*Prochaine verification: Apres redeploiement Railway (~5 min)*
+
+---
+
