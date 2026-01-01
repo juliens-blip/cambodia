@@ -99,10 +99,22 @@ class SupabaseService:
         """
         # Supabase upsert will automatically use the partial unique indexes
         # The indexes ensure that duplicates are detected correctly based on whether destination_country is NULL or not
-        result = self.client.table("prices").upsert(
-            price_data,
-            ignore_duplicates=False
-        ).execute()
+        table = self.client.table("prices")
+        query = table.select("id").eq("commodity_id", price_data.get("commodity_id"))\
+            .eq("date", price_data.get("date"))\
+            .eq("source", price_data.get("source"))
+
+        if price_data.get("destination_country"):
+            query = query.eq("destination_country", price_data.get("destination_country"))
+        else:
+            query = query.is_("destination_country", "null")
+
+        existing = query.execute().data
+        if existing:
+            record_id = existing[0]["id"]
+            result = table.update(price_data).eq("id", record_id).execute()
+        else:
+            result = table.insert(price_data).execute()
 
         dest_info = f"to {price_data.get('destination_country')}" if price_data.get('destination_country') else "(no destination)"
         logger.info(
@@ -174,6 +186,7 @@ class SupabaseService:
         """
         result = self.client.table("production").upsert(
             production_data,
+            on_conflict="commodity_id,year,province,source",
             ignore_duplicates=False
         ).execute()
 

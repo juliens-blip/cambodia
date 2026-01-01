@@ -10,6 +10,8 @@ class PublicPricesService:
     """Service to provide public commodity price data."""
 
     # Static historical prices (USD/ton) - Real-world approximate values
+    CASHEW_PRICE_BASIS = "kernel_fob_vietnam_w320"
+    CASHEW_PRICE_TYPE = "kernel"
     CASHEW_PRICES = {
         # 2025 prices (approximate based on market reports)
         "2025-12-27": 8500,
@@ -90,8 +92,12 @@ class PublicPricesService:
         # Select price source
         if commodity_lower == "cashew":
             prices_dict = self.CASHEW_PRICES
+            price_basis = self.CASHEW_PRICE_BASIS
+            price_type = self.CASHEW_PRICE_TYPE
         elif commodity_lower == "rubber":
             prices_dict = self.RUBBER_PRICES
+            price_basis = "tsr20_spot"
+            price_type = "raw_rubber"
         else:
             logger.warning(f"Unknown commodity: {commodity}")
             return []
@@ -108,7 +114,10 @@ class PublicPricesService:
                 result.append({
                     "date": date_str,
                     "price_usd": price,
-                    "commodity": commodity_lower
+                    "commodity": commodity_lower,
+                    "price_basis": price_basis,
+                    "price_type": price_type,
+                    "price_unit": "USD/ton"
                 })
 
         logger.info(f"Retrieved {len(result)} price points for {commodity} ({days} days)")
@@ -150,7 +159,10 @@ class PublicPricesService:
                 "average": 0,
                 "highest": 0,
                 "lowest": 0,
-                "change_pct": 0
+                "change_pct": 0,
+                "price_basis": None,
+                "price_type": None,
+                "price_unit": "USD/ton"
             }
 
         prices = [item["price_usd"] for item in history]
@@ -167,10 +179,20 @@ class PublicPricesService:
         else:
             change_pct = 0
 
-        return {
+        stats = {
             "current": current,
             "average": average,
             "highest": highest,
             "lowest": lowest,
             "change_pct": change_pct
         }
+        if commodity.lower() == "cashew":
+            stats["price_basis"] = self.CASHEW_PRICE_BASIS
+            stats["price_type"] = self.CASHEW_PRICE_TYPE
+            stats["price_unit"] = "USD/ton"
+        elif commodity.lower() == "rubber":
+            stats["price_basis"] = "tsr20_spot"
+            stats["price_type"] = "raw_rubber"
+            stats["price_unit"] = "USD/ton"
+
+        return stats

@@ -36,8 +36,17 @@ class Settings(BaseSettings):
 
     # Data Sources URLs
     mef_api_url: str = "https://data.mef.gov.kh/api/v1/public-datasets/"
+    mef_realtime_api_url: str = "https://data.mef.gov.kh/api/v1/realtime-api"
     wits_api_url: str = "https://wits.worldbank.org/API/V1"
     odc_base_url: str = "https://data.opendevelopmentcambodia.net/en/dataset"
+    fao_giews_api_base_url: str = "https://fpma.fao.org/giews/v4/global/price_module/api/v1/"
+    fao_giews_price_tool_url: str = "https://www.fao.org/giews/food-prices/price-tool/en/"
+    fao_giews_csv_urls: str = ""
+    fao_giews_country_filter: str = "Cambodia"
+    cac_base_url: str = "https://cac-camcashew.org"
+    cac_seed_paths: str = "/"
+    cac_max_pdfs: int = 25
+    cac_max_pages: int = 20
 
     # Scheduler settings (Cambodia timezone)
     timezone: str = "Asia/Phnom_Penh"

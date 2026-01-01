@@ -394,3 +394,56 @@ git commit -m "feat: Phase 1.X - [description]"
 
 *Plan cree le 2026-01-01*
 *En attente validation utilisateur avant implementation*
+
+---
+
+## ADDENDUM (2026-01-01) - PLAN UPDATE FOR FREE SOURCES (PHASE 2)
+
+### Status Update
+- Phase 1 (prompts, price validation, scenario context, macro injection) is already implemented in code.
+- Remaining work focuses on free-source ETL and data ingestion.
+
+### Phase 2: Free Sources Integration (FAO GIEWS/FPMA, CAC, WITS/Comtrade)
+
+- [ ] **2.1** - Create collector `app/collectors/fao_giews_collector.py`
+  - Use FPMA API JSON when CSV is not available.
+  - FPMA endpoints:
+    - `FpmaSerie?commodity=<id>&iso3_country_code=KHM`
+    - `FpmaSeriePrice?uuid__in=<uuid1,uuid2>`
+  - Parse for Cambodia + cashew (if missing, log "no data").
+  - Normalize to `prices` table with metadata:
+    - source: `FAO_GIEWS`
+    - price_type: `farmgate` or `wholesale`
+    - unit: `KHR/kg` or `USD/ton`.
+  - Keep CSV fallback (configurable URLs).
+
+- [ ] **2.2** - Create collector `app/collectors/cac_collector.py`
+  - Scrape https://cac-camcashew.org/ for PDF/communique links.
+  - Crawl report/news pages to find PDF attachments.
+  - Download PDFs and store as `context_documents` (for semantic search).
+  - Reuse existing PDF parsing logic (from GDrive collector) where possible.
+  - Include metadata: source `CAC`, title, date, url.
+
+- [ ] **2.3** - WITS/Comtrade alignment for Vietnam flows
+  - Ensure WITS data focuses on HS 080130 (RCN) and partner VNM.
+  - Use Download.aspx HS6 export if SDMX rejects 080130.
+  - Store annual flow data and unit values as metadata.
+  - Add prompt guidance: WITS/Comtrade is annual and not real-time.
+
+- [ ] **2.4** - Update prompts to reflect data latency
+  - Add a short disclaimer in Perplexity prompts:
+    - Vietnam Customs data is indirect (WITS/Comtrade, press citations).
+    - FAO GIEWS is monthly, not daily.
+
+- [ ] **2.5** - Scheduler job (monthly)
+  - Add a monthly job to run FAO + CAC collectors.
+  - Use existing scheduler pattern in `app/scheduler/jobs.py`.
+
+### Validation (Phase 2)
+- [ ] Run FAO collector once and verify new `prices` rows (or "no data" if FPMA lacks Cambodia cashew).
+- [ ] Run CAC collector and verify `context_documents` entries.
+- [ ] Trigger indexation and verify CAC docs are searchable.
+
+### Notes
+- No paid APIs required.
+- Vietnam Customs remains indirect via WITS/Comtrade and news citations.

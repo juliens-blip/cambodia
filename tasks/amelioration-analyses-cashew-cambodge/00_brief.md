@@ -641,3 +641,24 @@ scheduler.add_job(
 Ce brief contient toutes les informations nécessaires pour que l'agent APEX lance le workflow `/analyze` puis `/plan`.
 
 **Prochaine étape:** Lancer agent APEX avec ce brief.
+
+---
+
+## ADDENDUM (2026-01-01) - SOURCES GRATUITES CONFIRMEES
+
+### FAO GIEWS / FPMA
+- Acces gratuit via FPMA (telechargement CSV depuis l'interface).
+- Pas d'API JSON officielle: ETL via scripts + reverse engineering des URLs.
+- Reference: https://www.fao.org/giews/food-prices/home/en/
+- Price tool: https://www.fao.org/giews/food-prices/price-tool/en/
+
+### Vietnam Customs (imports RCN Cambodge)
+- Pas d'API officielle gratuite simple.
+- Sources gratuites possibles:
+  - WITS / Comtrade pour flux HS 080130 (annuel).
+  - Articles citant Vietnam Customs (Vietnamnet, Asemconnect, Vinacas, Tridge, etc.).
+- Exemple WITS: https://wits.worldbank.org/trade/comtrade/en/country/All/year/2023/tradeflow/Imports/partner/VNM/product/080130
+
+### CAC (Cashew Association of Cambodia)
+- Site et rapports gratuits (PDF/communiques).
+- Source: https://cac-camcashew.org/

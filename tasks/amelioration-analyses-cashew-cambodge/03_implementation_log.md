@@ -3,7 +3,7 @@
 ## Informations
 **Date debut:** 2026-01-01
 **Base sur:** 02_plan.md (valide)
-**Statut:** Termine
+**Statut:** Phase 1 complete, Phase 2 in progress
 
 ---
 
@@ -68,6 +68,32 @@
 
 ---
 
+### Phase 2.1: Collecteurs Sources Gratuites
+- [x] **2.1** - Creer `app/collectors/fao_giews_collector.py`
+  - CSV discovery via price tool + URLs configurees
+  - Parsing CSV (Cambodia + cashew) et normalisation
+  - Metadata: currency, unit, market, product
+
+- [x] **2.2** - Creer `app/collectors/cac_collector.py`
+  - Scraping CAC pour liens PDF
+  - Extraction texte via PDFParser
+  - Enregistrement documents context + production si detectee
+
+---
+
+### Phase 2.2: Ingestion et Scheduler
+- [x] **2.3** - Ajout helpers ingestion dans `app/scheduler/jobs.py`
+  - `run_collectors()` + `store_data_dual()` + `init_services()`
+  - Mapping prix / production / context_documents
+
+- [x] **2.4** - Ajout note latence des sources dans les prompts
+  - FAO GIEWS = mensuel, WITS/Comtrade = annuel
+  - Fichier: `app/services/perplexity_service.py`
+
+- [x] **2.5** - Job mensuel "free sources"
+  - FAO GIEWS + CAC + WITS (HS 080130, partner VNM)
+  - Cron: day 1, 03:00 UTC
+
 ## Problemes Rencontres
 | Etape | Probleme | Solution | Temps perdu |
 |-------|----------|----------|-------------|
@@ -83,6 +109,12 @@
 | `app/services/market_trends_service.py` | Modifie | Validation prix + clarification |
 | `app/api/routes/trends.py` | Modifie | Scenarios cambodgiens detailles |
 | `ui/pages/5_Market_Trends.py` | Modifie | Validation coherence labels |
+| `app/collectors/fao_giews_collector.py` | Cree | Collector FAO GIEWS / FPMA (CSV) |
+| `app/collectors/cac_collector.py` | Cree | Collector CAC (PDFs) |
+| `app/collectors/__init__.py` | Modifie | Exports nouveaux collecteurs |
+| `app/scheduler/jobs.py` | Modifie | Ingestion + job mensuel |
+| `.env.example` | Modifie | Variables FAO/CAC |
+| `app/config.py` | Modifie | Settings FAO/CAC |
 | `tasks/amelioration-analyses-cashew-cambodge/01_analysis.md` | Cree | Analyse codebase |
 | `tasks/amelioration-analyses-cashew-cambodge/02_plan.md` | Cree | Plan implementation |
 | `tasks/amelioration-analyses-cashew-cambodge/03_implementation_log.md` | Cree | Ce fichier |
@@ -90,7 +122,7 @@
 ---
 
 ## Resultat Final
-**Statut:** Termine
+**Statut:** Phase 2 en cours (collecteurs + scheduler ajoutes)
 
 ---
 
@@ -153,12 +185,57 @@ Analyze current market conditions for {commodity} in Cambodia:
    - Verifier presence contexte cambodgien
    - Verifier prix RCN vs Kernels distincts
 
-2. **Phase 2 (optionnel)**: ETL FAO GIEWS / FAOSTAT
-   - Scripts collecte prix farmgate officiels
-   - Integration donnees commerce international
+2. **Phase 2**: Tests ingestion free sources
+   - Lancer collecteurs FAO/CAC
+   - Verifier stockage Supabase + indexation context_documents
 
 3. **Monitoring**: Verifier qualite analyses pendant 1 semaine
 
 ---
 
 *Journal complete le 2026-01-01*
+
+---
+
+## ADDENDUM (2026-01-01) - PHASE 2 UPDATE
+
+Phase 2 implementation started:
+- FAO GIEWS/FPMA CSV collector added.
+- CAC PDF collector added.
+- Monthly scheduler job added (free sources).
+
+Remaining:
+- Run ingestion tests.
+- Confirm WITS HS 080130 coverage and adjust if needed.
+
+---
+
+## ADDENDUM (2026-01-01) - PHASE 2 API + CRAWL
+
+Updates:
+- FAO collector now uses FPMA API (FpmaSerie + FpmaSeriePrice via uuid__in).
+- CAC collector now crawls /report and /news pages to find PDF attachments.
+- WITS collector now supports HS6 download (Download.aspx) for product 080130.
+- New settings in config/.env.example: FAO_GIEWS_API_BASE_URL, CAC_MAX_PAGES.
+
+Tests (local):
+- FAO FPMA, Cambodia filter: 0 records (no cashew series for KHM).
+- FAO FPMA, GNB filter (sanity): records returned, price_value_dollar parsed.
+- CAC collector with seed /report, max_pages=10: 1 PDF found (context doc).
+- WITS HS6 download (KHM->VNM, 080130): records returned for 2021-2023.
+
+Fixes:
+- Supabase prices.volume_tons expects integer: normalize/round volume_tons before upsert.
+- Supabase production upsert now uses on_conflict (commodity_id,year,province,source).
+- WITS HS6 rows now store unit price (USD/ton) instead of total trade value to avoid numeric overflow.
+- Supabase price upsert now uses select+update/insert to avoid partial index conflicts.
+- Market trends storage now updates existing (commodity, trend_date) rows instead of failing on duplicates.
+- Scenario prompts now label cashew benchmark price as kernel FOB Vietnam (W320) to avoid ambiguity.
+
+Ingestion (monthly_free_sources_collection):
+- Completed with summary: prices=3, production=3, documents=6.
+
+Scenario refresh (local):
+- Generated scenarios via `generate_scenario_analysis` for cashew:
+  - pessimistic, realistic, optimistic.
+- Remote Railway endpoints returned 403; ran locally instead.

@@ -310,8 +310,19 @@ async def generate_scenario_analysis(
                 price_data = {"statistics": {"current": 0, "change_pct": 0}}
         
         # Extract key metrics
-        current_price = price_data.get("statistics", {}).get("current", 0)
-        price_change = price_data.get("statistics", {}).get("change_pct", 0)
+        price_stats = price_data.get("statistics", {})
+        current_price = price_stats.get("current", 0)
+        price_change = price_stats.get("change_pct", 0)
+        price_basis = price_stats.get("price_basis")
+        price_label = "public benchmark"
+        if commodity == "cashew":
+            if price_basis == "kernel_fob_vietnam_w320":
+                price_label = "kernel benchmark (FOB Vietnam, W320)"
+            else:
+                price_label = "cashew benchmark"
+        elif commodity == "rubber":
+            if price_basis == "tsr20_spot":
+                price_label = "TSR20 spot benchmark"
         
         # Get Twitter sentiment if available
         twitter_sentiment = "neutral"
@@ -452,7 +463,7 @@ async def generate_scenario_analysis(
             'pessimistic': f"""As a conservative market analyst, provide a PESSIMISTIC (bearish) analysis for {commodity} market.
 
 {docs_block}{macro_block}{cambodia_block}Current market data:
-- Current price: ${current_price}/ton
+- Current price ({price_label}): ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
 - Overall trend: {overall_trend}
@@ -472,7 +483,7 @@ Be realistic but cautious. Distinguish RCN vs Kernel prices. Keep response under
             'realistic': f"""As a balanced market analyst, provide a REALISTIC (neutral) analysis for {commodity} market.
 
 {docs_block}{macro_block}{cambodia_block}Current market data:
-- Current price: ${current_price}/ton
+- Current price ({price_label}): ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
 - Overall trend: {overall_trend}
@@ -491,7 +502,7 @@ Be objective and data-driven. Distinguish RCN ($1,500-2,500) vs Kernel ($6,000-7
             'optimistic': f"""As an opportunity-focused market analyst, provide an OPTIMISTIC (bullish) analysis for {commodity} market.
 
 {docs_block}{macro_block}{cambodia_block}Current market data:
-- Current price: ${current_price}/ton
+- Current price ({price_label}): ${current_price}/ton
 - Price change (30 days): {price_change:+.2f}%
 - Twitter sentiment: {twitter_sentiment}
 - Overall trend: {overall_trend}

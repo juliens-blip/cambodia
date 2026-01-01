@@ -251,3 +251,24 @@ trend_emoji = {
 
 *Analyse completee le 2026-01-01*
 *Pret pour creation 02_plan.md*
+
+---
+
+## ADDENDUM (2026-01-01) - STATE UPDATE AND DATA CONSTRAINTS
+
+### Codebase Updates (Already Implemented)
+- Perplexity prompts already enforce RCN vs kernels, FOB vs farmgate, grades.
+- Scenario prompts already include Cambodia context and farmer impact requirements.
+- Price validation and clarification already added in `app/services/market_trends_service.py`.
+- Macro context now injected automatically via `app/services/cambodia_macro_service.py`.
+- New config: `app/config.py` includes `mef_realtime_api_url`.
+
+### Remaining Gaps (Phase 2 - Free Sources)
+- No collector for FAO GIEWS / FPMA CSV downloads.
+- No collector for CAC site (PDF communiques / reports).
+- Vietnam Customs has no free API; rely on WITS/Comtrade (annual) + press citations.
+
+### Source Constraints (User Confirmed)
+- FAO GIEWS / FPMA: CSV only, needs URL scripting / reverse engineering.
+- Vietnam Customs: no free API; use WITS/Comtrade + news sources.
+- CAC: free PDFs at https://cac-camcashew.org/.
