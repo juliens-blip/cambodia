@@ -9,7 +9,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from pathlib import Path
-from streamlit_autorefresh import st_autorefresh
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -53,7 +52,10 @@ history_days = st.sidebar.slider(
 # Auto-refresh option
 auto_refresh = st.sidebar.checkbox("Auto-refresh (60s)", value=False)
 if auto_refresh:
-    st_autorefresh(interval=60 * 1000, key="market_trends_autorefresh")
+    st.markdown(
+        "<meta http-equiv=\"refresh\" content=\"60\">",
+        unsafe_allow_html=True,
+    )
 
 def parse_number(value):
     if value is None:
@@ -99,6 +101,17 @@ def load_csx_index_cache_file():
     }
 
 
+def load_csx_index_env_override():
+    env_value = parse_number(os.getenv("CSX_INDEX_FALLBACK_VALUE"))
+    if env_value is None:
+        return None
+    return {
+        "value": env_value,
+        "change_percent": parse_number(os.getenv("CSX_INDEX_FALLBACK_CHANGE_PCT")),
+        "updated_at": os.getenv("CSX_INDEX_FALLBACK_UPDATED_AT"),
+    }
+
+
 def persist_csx_index_cache(payload):
     try:
         CSX_INDEX_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -114,6 +127,9 @@ def get_last_valid_csx_index():
     cache = get_csx_index_cache()
     if cache.get("value") is not None:
         return dict(cache)
+    env_override = load_csx_index_env_override()
+    if env_override:
+        return env_override
     return None
 
 
@@ -362,6 +378,10 @@ try:
             commodity_display = t.get(f'filter_{commodity}', commodity.capitalize())
             st.markdown(f"## {t.get('trends_latest_analysis', 'Latest Analysis')} - {commodity_display}")
             st.markdown(f"*{t.get('trends_updated', 'Updated')}: {latest.get('trend_date', 'N/A')}*")
+            if language == "fr":
+                st.caption("L'auto-refresh rafraichit l'interface mais ne declenche pas une nouvelle analyse.")
+            else:
+                st.caption("Auto-refresh updates the UI but does not trigger a new analysis.")
 
             # Key metrics
             col1, col2, col3, col4 = st.columns(4)

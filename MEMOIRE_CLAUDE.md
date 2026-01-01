@@ -2209,9 +2209,20 @@ Validation:
 ## MAJ 2026-01-01 - Auto-refresh streamlit-autorefresh + CSX cache fichier
 
 Ce qui a ete fait:
-- UI Market Trends: auto-refresh via streamlit-autorefresh (remplace st.fragment).
+- UI Market Trends: auto-refresh via meta refresh HTML (sans widget).
 - UI Market Trends + Scenario Analysis: cache CSX index persistant via logs/csx_index_cache.json.
-- requirements-streamlit.txt: ajout streamlit-autorefresh.
+- requirements-streamlit.txt: retrait streamlit-autorefresh.
 
 Validation:
 - A faire apres redeploy / verifier absence erreur #321 + fallback CSX persistent.
+
+---
+
+## MAJ 2026-01-01 - BACKEND_BASE_URL plus tot + fallback CSX env
+
+Ce qui a ete fait:
+- start.py: repositionne l injection BACKEND_BASE_URL avant le script module (force base root).
+- UI Market Trends + Scenario Analysis: fallback CSX index optionnel via env (CSX_INDEX_FALLBACK_VALUE/UPDATED_AT).
+
+Validation:
+- A faire apres redeploy / verifier disparition des 404 _stcore et valeur CSX si override env.

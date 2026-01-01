@@ -261,6 +261,17 @@ def load_csx_index_cache_file():
     }
 
 
+def load_csx_index_env_override():
+    env_value = parse_number(os.getenv("CSX_INDEX_FALLBACK_VALUE"))
+    if env_value is None:
+        return None
+    return {
+        "value": env_value,
+        "change_percent": parse_number(os.getenv("CSX_INDEX_FALLBACK_CHANGE_PCT")),
+        "updated_at": os.getenv("CSX_INDEX_FALLBACK_UPDATED_AT"),
+    }
+
+
 def persist_csx_index_cache(payload):
     try:
         CSX_INDEX_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -276,6 +287,9 @@ def get_last_valid_csx_index():
     cache = get_csx_index_cache()
     if cache.get("value") is not None:
         return dict(cache)
+    env_override = load_csx_index_env_override()
+    if env_override:
+        return env_override
     return None
 
 

@@ -271,13 +271,30 @@ def patch_streamlit_index_html() -> None:
         print(f"[UI] Warning: failed to read {index_path}: {exc}", flush=True)
         return
 
+    def insert_injection(content: str) -> str:
+        head_tag = "<head>"
+        if head_tag in content:
+            return content.replace(head_tag, f"{head_tag}\n{injection}", 1)
+        if "</head>" in content:
+            return content.replace("</head>", f"{injection}</head>", 1)
+        return injection + content
+
     updated = html
 
-    if marker not in updated:
-        if "</head>" in updated:
-            updated = updated.replace("</head>", f"{injection}</head>", 1)
-        else:
-            updated = injection + updated
+    if marker in updated:
+        module_index = updated.find('type="module"')
+        marker_index = updated.find(marker)
+        if module_index != -1 and marker_index > module_index:
+            updated = re.sub(
+                rf"{re.escape(marker)}\s*<script>.*?</script>\s*",
+                "",
+                updated,
+                count=1,
+                flags=re.S,
+            )
+            updated = insert_injection(updated)
+    else:
+        updated = insert_injection(updated)
 
     if cache_bust_query not in updated:
         updated = re.sub(

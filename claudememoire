@@ -1141,9 +1141,16 @@ Blocages :
 
 ## MAJ SESSION 2026-01-01 - Auto-refresh streamlit-autorefresh + CSX cache fichier
 
-- UI Market Trends: auto-refresh via streamlit-autorefresh (suppression st.fragment).
+- UI Market Trends: auto-refresh via meta refresh HTML (sans widget).
 - UI Market Trends + Scenario Analysis: cache CSX index persistant via fichier logs/csx_index_cache.json.
-- requirements-streamlit.txt: ajout streamlit-autorefresh.
+- requirements-streamlit.txt: nettoyage dependance streamlit-autorefresh.
+
+---
+
+## MAJ SESSION 2026-01-01 - BACKEND_BASE_URL plus tot + fallback CSX env
+
+- start.py: repositionne l injection BACKEND_BASE_URL avant le script module.
+- UI Market Trends + Scenario Analysis: fallback CSX index optionnel via env (CSX_INDEX_FALLBACK_VALUE/UPDATED_AT).
 
 **FIN CLAUDEMEMOIRE**
 
