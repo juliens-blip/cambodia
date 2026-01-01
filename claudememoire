@@ -1152,6 +1152,12 @@ Blocages :
 - start.py: repositionne l injection BACKEND_BASE_URL avant le script module.
 - UI Market Trends + Scenario Analysis: fallback CSX index optionnel via env (CSX_INDEX_FALLBACK_VALUE/UPDATED_AT).
 
+---
+
+## MAJ SESSION 2026-01-01 - API readiness + grace period
+
+- start.py: ajout d un grace period + event readiness pour eviter que le health monitor tue l API pendant le demarrage.
+
 **FIN CLAUDEMEMOIRE**
 
 *Derniere mise a jour : 2026-01-01*

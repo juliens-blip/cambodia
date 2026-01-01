@@ -5,6 +5,7 @@
 **Demande initiale:** Corriger le CSX Index (N/A) et l'auto-refresh Streamlit (erreurs /_stcore/health 404 + page qui boucle) sur Market Trends en production.
 **Contexte additionnel:** Apres redeploy, erreur front React #321 (invalid hook call) sur index.js, auto-refresh toujours instable.
 **Objectif:** Stabiliser la connexion Streamlit (auto-refresh OK, page non bloquee), eliminer l erreur React, et clarifier/fixer l'affichage CSX Index si possible.
+**MAJ 2026-01-01:** Erreur "Connection refused" cote UI (API 127.0.0.1:8000), logs Railway montrent le health monitor qui tue l'API (health check fail 3x) avant que le port soit ouvert.
 
 ## Etat Actuel de la Codebase
 
@@ -102,6 +103,8 @@ Minified React error #321 (Invalid hook call)
 - **Auto-refresh bloque:** l'auto-refresh est execute en haut de page (sleep + rerun), ce qui empeche le rendu complet et donne l'impression de chargement en boucle.
 - **Fallback CSX fragile:** la fallback via session_state saute apres un reload navigateur (nouvelle session), donc N/A persiste si la source reste null.
 - **React #321:** erreur invalid hook call cote client, possiblement declenchee par un widget/custom component d auto-refresh.
+- **API instable:** le health monitor termine l'API apres 3 checks fails, avant que le port soit ouvert (connection refused cote UI).
+- **Cache-bust query:** le JS est charge avec `?v=codex-baseurl-1`; risque de duplication d'instance React si une autre page charge le bundle sans query (hypothese a verifier).
 
 ## Opportunites Identifiees
 - Injecter window.__streamlit.BACKEND_BASE_URL = window.location.origin + '/' dans index.html avant le bundle JS pour forcer l'usage de /_stcore/*.
@@ -111,6 +114,8 @@ Minified React error #321 (Invalid hook call)
 - Remplacer l'auto-refresh bloquant par un refresh HTML (meta refresh) pour laisser le rendu s'afficher.
 - Conserver un "dernier index valide" partage entre sessions (cache_resource ou variable globale) pour rester constant meme apres reload.
 - Utiliser un refresh HTML sans widget pour eviter l erreur React.
+- Ajouter un "grace period" au health monitor (ne pas tuer l'API avant readiness).
+- Option: retirer le cache-bust query si l'erreur React persiste.
 - Persistant CSX index: stocker la derniere valeur valide dans un fichier local (logs) pour survivre aux reloads.
 
 ## Resume Executif
@@ -119,5 +124,6 @@ Minified React error #321 (Invalid hook call)
 - Le loop de chargement vient d'un auto-refresh bloquant (sleep + rerun) execute avant le rendu de la page.
 - L erreur React #321 indique un invalid hook call, possiblement lie a l auto-refresh JS.
 - Correctifs principaux: forcer le BACKEND_BASE_URL dans le HTML Streamlit, remplacer l'auto-refresh par meta refresh (sans widget), et garder un cache persistant pour le CSX index.
+- Nouveau: l'API est instable car le health monitor la termine trop tot (connection refused).
 
 

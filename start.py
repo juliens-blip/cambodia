@@ -28,6 +28,9 @@ API_PORT = 8000
 MAX_RESTART_ATTEMPTS = 5
 RESTART_DELAY = 3  # seconds between restart attempts
 HEALTH_CHECK_INTERVAL = 30  # seconds between health checks
+STARTUP_GRACE_PERIOD = 180  # seconds to allow API startup before health enforcement
+api_ready_event = threading.Event()
+api_start_time = 0.0
 
 
 def cleanup():
@@ -112,9 +115,12 @@ def test_api_health(port: int = 8000, quiet: bool = False) -> bool:
 
 def start_api_process():
     """Start the API subprocess and return the process object."""
+    global api_start_time
     print(f"[API] Starting FastAPI on port {API_PORT}...", flush=True)
     print(f"[API] Python: {sys.executable}", flush=True)
     print(f"[API] Working dir: {os.getcwd()}", flush=True)
+    api_start_time = time.time()
+    api_ready_event.clear()
 
     process = subprocess.Popen(
         [sys.executable, "-m", "uvicorn",
@@ -164,6 +170,15 @@ def run_api_with_restart():
             # Wait for API to be ready
             if wait_for_port(API_PORT, timeout=90):
                 print(f"[API] API is ready on port {API_PORT}", flush=True)
+                for attempt in range(5):
+                    if test_api_health(API_PORT, quiet=True):
+                        api_ready_event.set()
+                        break
+                    time.sleep(2)
+                if api_ready_event.is_set():
+                    print("[API] API health check passed (ready)", flush=True)
+                else:
+                    print("[API] API health check not ready yet", flush=True)
                 consecutive_failures = 0  # Reset failure counter on success
             else:
                 print(f"[API] API failed to start within timeout", flush=True)
@@ -173,6 +188,7 @@ def run_api_with_restart():
                 exit_code = current_process.poll()
                 if exit_code is not None:
                     print(f"[API] Process exited with code {exit_code}", flush=True)
+                    api_ready_event.clear()
                     break
                 time.sleep(1)
 
@@ -210,6 +226,12 @@ def health_monitor():
 
     failures_in_a_row = 0
     while not shutdown_event.is_set():
+        if not api_ready_event.is_set():
+            startup_elapsed = time.time() - api_start_time
+            if startup_elapsed < STARTUP_GRACE_PERIOD:
+                print(f"[MONITOR] API starting ({startup_elapsed:.0f}s), skipping health check", flush=True)
+                time.sleep(HEALTH_CHECK_INTERVAL)
+                continue
         if test_api_health(API_PORT, quiet=True):
             if failures_in_a_row > 0:
                 print(f"[MONITOR] API recovered after {failures_in_a_row} failed checks", flush=True)

@@ -16,11 +16,15 @@
 - [x] **2.1** - Appliquer patch avant lancement Streamlit
 - [x] **2.2** - Remplacer auto-refresh JS par meta refresh HTML
 - [ ] **2.3** - Verifier ping _stcore (manuel)
+- [ ] **2.4** - Si React #321 persiste, retirer cache-bust query
 
 ### Phase 3: CSX Index fallback persistant
 - [x] **3.1** - Ajouter cache partage + fichier + fallback (Market Trends)
 - [x] **3.2** - Ajouter cache partage + fallback (Scenario Analysis)
 - [x] **3.3** - Ajouter fallback manuel via env (optionnel)
+
+### Phase 4: Stabilisation API
+- [x] **4.1** - Ajouter readiness + grace period au health monitor (start.py)
 
 ### Phase 4: Tests & Validation
 - [ ] **4.1** - Test manuel ping _stcore

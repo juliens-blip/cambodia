@@ -2226,3 +2226,13 @@ Ce qui a ete fait:
 
 Validation:
 - A faire apres redeploy / verifier disparition des 404 _stcore et valeur CSX si override env.
+
+---
+
+## MAJ 2026-01-01 - API readiness + grace period
+
+Ce qui a ete fait:
+- start.py: ajout d un grace period (STARTUP_GRACE_PERIOD) et d un event readiness pour eviter les kills du health monitor avant que l API reponde.
+
+Validation:
+- A faire apres redeploy / verifier disparition des "Connection refused".

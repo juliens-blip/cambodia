@@ -18,6 +18,7 @@
 | CSX index renvoie null -> N/A | Fallback persistant + message explicite | Stocker dernier index valide en session + cache partage + fichier |
 | React #321 (invalid hook call) | Front stable sans erreur | Supprimer widgets custom et utiliser meta refresh |
 | Aucun fallback manuel CSX | Valeur stable si MEF renvoie null | Ajouter override via env (CSX_INDEX_FALLBACK_VALUE + UPDATED_AT) |
+| API tuée trop tot | API stable (pas de "connection refused") | Ajouter un grace period / readiness avant health monitor kill |
 
 ## Architecture Proposee
 `
@@ -46,6 +47,9 @@
   - Action: injecter `<meta http-equiv="refresh" content="60">` via st.markdown
   - Validation: pas d erreur React #321, la page se rafraichit sans blocage
 - [ ] **2.3** - Verifier que le ping cible /_stcore/health (plus de 404 Market_Trends/_stcore)
+- [ ] **2.4** - Si React #321 persiste, retirer le cache-bust query dans index.html
+  - Action: ne plus injecter `?v=codex-baseurl-1` (hash Streamlit suffit)
+  - Validation: plus de hook error en console
 
 ### Phase 3: CSX Index fallback persistant
 - [ ] **3.1** - Ajouter un cache partage + fichier local (Market Trends)
@@ -63,6 +67,7 @@
 - [ ] **4.2** - Test manuel: activer auto-refresh et verifier que la page ne boucle pas (rendu OK)
 - [ ] **4.3** - Test manuel: verifier absence d erreur React #321 dans la console
 - [ ] **4.4** - Test manuel: simuler csx_index null et verifier message + fallback persistant
+- [ ] **4.5** - Test manuel: verifier API stable (pas de "connection refused")
 
 ## Commandes a Executer
 ```bash
@@ -75,6 +80,7 @@ curl https://cambodia.up.railway.app/Market_Trends | rg "BACKEND_BASE_URL"
 |---|---|---|
 | Patch HTML fragile si Streamlit change son index.html | Moyen | Ajouter un marqueur et injection idempotente |
 | CSX index toujours null (upstream) | Moyen | Message explicite + fallback local |
+| API restart loop (health monitor) | Eleve | Ajouter readiness + grace period avant kill |
 
 ## Points de Validation
 - [ ] /Market_Trends/_stcore/health n'est plus appele (ou renvoie 200 si on force)
