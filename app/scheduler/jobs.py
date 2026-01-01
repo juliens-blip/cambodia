@@ -82,6 +82,16 @@ def start_scheduler():
         scheduler.start()
         logger.info("[SCHEDULER] ✅ Scheduler started")
         print("[SCHEDULER] ✅ Scheduler started", flush=True)
+
+        # Trigger immediate analysis on startup (non-blocking)
+        logger.info("[SCHEDULER] 🚀 Triggering immediate analysis on startup...")
+        print("[SCHEDULER] 🚀 Triggering immediate analysis on startup...", flush=True)
+        scheduler.add_job(
+            daily_market_analysis,
+            id="startup_analysis",
+            name="Startup Market Analysis (immediate)",
+            replace_existing=True,
+        )
     else:
         logger.warning("[SCHEDULER] ⚠️ Scheduler already running")
         print("[SCHEDULER] ⚠️ Scheduler already running", flush=True)
