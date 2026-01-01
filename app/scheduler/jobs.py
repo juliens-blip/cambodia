@@ -54,6 +54,8 @@ async def daily_market_analysis():
 
 def schedule_daily_jobs():
     """Schedule all daily jobs"""
+    import logging
+    logger = logging.getLogger(__name__)
 
     # Daily market analysis at 9:00 AM (Cambodia time - UTC+7)
     # If Railway/server is UTC, this runs at 02:00 UTC = 09:00 Cambodia time
@@ -66,16 +68,22 @@ def schedule_daily_jobs():
         max_instances=1,  # Prevent multiple concurrent runs
     )
 
+    logger.info("[SCHEDULER] Scheduled job: Daily Market Analysis at 02:00 UTC (09:00 Cambodia)")
     print("[SCHEDULER] Scheduled job: Daily Market Analysis at 02:00 UTC (09:00 Cambodia)", flush=True)
 
 
 def start_scheduler():
     """Start the scheduler"""
+    import logging
+    logger = logging.getLogger(__name__)
+
     if not scheduler.running:
         schedule_daily_jobs()
         scheduler.start()
+        logger.info("[SCHEDULER] ✅ Scheduler started")
         print("[SCHEDULER] ✅ Scheduler started", flush=True)
     else:
+        logger.warning("[SCHEDULER] ⚠️ Scheduler already running")
         print("[SCHEDULER] ⚠️ Scheduler already running", flush=True)
 
 
