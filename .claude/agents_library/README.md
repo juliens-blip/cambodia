@@ -8,7 +8,7 @@
 cp -r .claude/agents_library /votre-projet/.claude/agents/
 ```
 
-## Contenu (20 agents)
+## Contenu (26 agents)
 
 ### Fichiers Speciaux
 | Fichier | Description |
@@ -16,20 +16,25 @@ cp -r .claude/agents_library /votre-projet/.claude/agents/
 | `agents_supreme.md` | Catalogue complet avec index et matrice de selection |
 | `agent_controle.md` | Meta-agent pour choisir le bon agent |
 
-### Code & Developpement (6)
+### Code & Developpement (8)
 | Agent | Modele | Usage |
 |-------|--------|-------|
 | `backend-architect.md` | sonnet | APIs REST, microservices, schemas DB |
 | `code-reviewer.md` | sonnet | Review code qualite/securite |
 | `debugger.md` | sonnet | Analyse erreurs, stack traces |
+| `explore-code.md` | sonnet | Exploration codebase, recherche patterns |
+| `explore-style.md` | sonnet | Analyse style code, conventions |
 | `frontend-developer.md` | sonnet | React, CSS, UI responsive |
 | `fullstack-developer.md` | opus | Projets complets front+back |
+| `test-code.md` | sonnet | Tests specifiques code |
 | `test-engineer.md` | sonnet | Tests unitaires, integration, e2e |
 
-### AI & Prompts (4)
+### AI & Prompts (6)
 | Agent | Modele | Usage |
 |-------|--------|-------|
 | `prompt-engineer.md` | opus | Optimisation prompts LLM |
+| `mcp-creator.md` | sonnet | Creation serveurs MCP |
+| `mcp-doctor.md` | sonnet | Diagnostic/fix MCP |
 | `mcp-expert.md` | sonnet | Configurations MCP |
 | `mcp-server-architect.md` | sonnet | Architecture serveurs MCP |
 | `mcp-testing-engineer.md` | sonnet | Tests integrations MCP |
@@ -52,9 +57,10 @@ cp -r .claude/agents_library /votre-projet/.claude/agents/
 |-------|--------|-------|
 | `legal-advisor.md` | opus | Privacy, ToS, GDPR |
 
-### Workflow (4)
+### Workflow & Orchestration (5)
 | Agent | Modele | Usage |
 |-------|--------|-------|
+| `apex-workflow.md` | sonnet | **PRINCIPAL** - Workflow 3 etapes (/analyze, /plan, /implement) |
 | `context-manager.md` | opus | Gestion contexte multi-agents |
 | `epct.md` | opus | Chain-of-thought expert |
 | `moana-epct.md` | opus | Variante EPCT |
@@ -85,5 +91,5 @@ Task(
 ---
 
 *Collection maintenue par Claude Opus 4.5*
-*Version: 1.0 - 2026-01-02*
-*Total: 20 agents + 2 fichiers speciaux*
+*Version: 1.1 - 2026-01-02*
+*Total: 26 agents (dont apex-workflow) + 2 fichiers speciaux*

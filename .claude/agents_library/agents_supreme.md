@@ -9,12 +9,12 @@
 
 | Categorie | Agents |
 |-----------|--------|
-| **Code & Dev** | code-reviewer, debugger, frontend-developer, backend-architect, fullstack-developer |
-| **AI & Prompts** | prompt-engineer, mcp-expert, mcp-server-architect, mcp-testing-engineer |
+| **Code & Dev** | code-reviewer, debugger, frontend-developer, backend-architect, fullstack-developer, explore-code, explore-style, test-code, test-engineer |
+| **AI & Prompts** | prompt-engineer, mcp-expert, mcp-creator, mcp-doctor, mcp-server-architect, mcp-testing-engineer |
 | **Design & UX** | ui-ux-designer, video-editor |
 | **Marketing & SEO** | content-marketer, seo-analyzer, seo-podcast-optimizer |
 | **Legal & Compliance** | legal-advisor |
-| **Workflow** | context-manager, epct, moana-epct, test-engineer |
+| **Workflow & Orchestration** | **apex-workflow**, context-manager, epct, moana-epct, agent_controle |
 
 ---
 
@@ -135,6 +135,44 @@ usage: Projets complets front+back
 
 ---
 
+#### explore-code
+```yaml
+name: explore-code
+model: sonnet
+tools: Read, Grep, Glob, Bash
+usage: Exploration codebase, recherche patterns
+```
+**Description:** Agent specialise dans l'exploration et comprehension de codebases.
+
+**Quand l'utiliser:**
+- Decouvrir une nouvelle codebase
+- Trouver des patterns specifiques
+- Comprendre l'architecture existante
+
+---
+
+#### explore-style
+```yaml
+name: explore-style
+model: sonnet
+tools: Read, Grep, Glob
+usage: Analyse conventions, style code
+```
+**Description:** Analyse le style et les conventions d'un projet.
+
+---
+
+#### test-code
+```yaml
+name: test-code
+model: sonnet
+tools: Read, Write, Edit, Bash
+usage: Tests specifiques pour code
+```
+**Description:** Creation et execution de tests pour code specifique.
+
+---
+
 ### 2. AI & PROMPTS
 
 #### prompt-engineer
@@ -203,6 +241,40 @@ tools: Read, Write, Edit, Bash
 usage: Tests d'integrations MCP
 ```
 **Description:** Ingenieur test specialise MCP.
+
+---
+
+#### mcp-creator
+```yaml
+name: mcp-creator
+model: sonnet
+tools: Read, Write, Edit, Bash
+usage: Creation nouveaux serveurs MCP
+```
+**Description:** Specialiste creation de serveurs MCP from scratch.
+
+**Focus:**
+- Scaffolding serveurs MCP
+- Implementation protocols
+- Configuration JSON
+- Documentation
+
+---
+
+#### mcp-doctor
+```yaml
+name: mcp-doctor
+model: sonnet
+tools: Read, Write, Edit, Bash, Grep
+usage: Diagnostic et fix problemes MCP
+```
+**Description:** Diagnostique et repare les problemes de serveurs MCP.
+
+**Quand l'utiliser:**
+- Serveur MCP qui ne demarre pas
+- Erreurs de connexion
+- Problemes de configuration
+- Debug integrations
 
 ---
 
@@ -345,7 +417,34 @@ usage: Privacy policies, ToS, GDPR, compliance
 
 ---
 
-### 6. WORKFLOW & COORDINATION
+### 6. WORKFLOW & ORCHESTRATION
+
+#### apex-workflow (PRINCIPAL)
+```yaml
+name: apex-workflow
+model: sonnet
+tools: Read, Write, Edit, Bash, Grep, Glob, Task, TodoWrite, AskUserQuestion, Context7, WebSearch
+usage: Taches complexes necessitant analyse + plan + implementation
+```
+**Description:** Agent orchestrateur principal avec workflow en 3 etapes.
+
+**Workflow:**
+1. **/analyze** - Exploration exhaustive (codebase + docs Context7)
+2. **/plan** - Planification strategique detaillee
+3. **/implement** - Execution controlee et validee
+
+**Structure fichiers:**
+```
+tasks/
+├── <nom-feature>/
+│   ├── 01_analysis.md
+│   ├── 02_plan.md
+│   └── 03_implementation_log.md
+```
+
+**Regle d'or:** Ne JAMAIS coder avant d'avoir produit l'analyse ET le plan.
+
+---
 
 #### context-manager
 ```yaml
@@ -394,8 +493,10 @@ usage: Tests unitaires, integration, e2e
 
 | Tache | Agent Recommande | Alternative |
 |-------|------------------|-------------|
+| Tache complexe multi-etapes | **apex-workflow** | epct |
 | Review code | code-reviewer | debugger |
 | Fix bug | debugger | code-reviewer |
+| Explorer codebase | explore-code | apex-workflow |
 | Nouveau composant React | frontend-developer | ui-ux-designer |
 | Design API | backend-architect | fullstack-developer |
 | Creer prompt | prompt-engineer | - |
@@ -403,7 +504,10 @@ usage: Tests unitaires, integration, e2e
 | Privacy policy | legal-advisor | - |
 | Montage video | video-editor | - |
 | Config MCP | mcp-expert | mcp-server-architect |
-| Projet complexe | context-manager + epct | fullstack-developer |
+| Creer serveur MCP | mcp-creator | mcp-expert |
+| Fix MCP | mcp-doctor | mcp-expert |
+| Projet complexe long | apex-workflow | context-manager + epct |
+| Choisir un agent | agent_controle | - |
 
 ---
 
@@ -431,4 +535,5 @@ Pour taches complexes, combiner:
 ---
 
 *Catalogue maintenu par Claude Opus 4.5*
-*Version: 1.0 - 2026-01-02*
+*Version: 1.1 - 2026-01-02*
+*Total: 26 agents*
