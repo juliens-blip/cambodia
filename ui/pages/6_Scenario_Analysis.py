@@ -1359,6 +1359,22 @@ def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
     """Display Cambodia-specific impact for rubber scenarios."""
     import plotly.graph_objects as go
 
+    # Labels based on language
+    if language == "fr":
+        labels = {
+            "export_revenue": "Revenus Export",
+            "families": "Familles Agricoles",
+            "farmgate": "Prix Producteur",
+            "scenario_price": "Prix Scénario"
+        }
+    else:
+        labels = {
+            "export_revenue": "Export Revenue",
+            "families": "Farming Families",
+            "farmgate": "Farmgate Price",
+            "scenario_price": "Scenario Price"
+        }
+
     # Get current price from market data
     current_price = market_data.get('statistics', {}).get('current', 1825) if market_data else 1825
 
