@@ -275,9 +275,36 @@ def format_number(value, decimals: int = 0) -> str:
     return f"{value:,.{decimals}f}"
 
 
-def clean_display_text(text: str) -> str:
+def normalize_rubber_terms(text: str) -> str:
+    if not text:
+        return text
+    cleaned = re.sub(
+        r"\bRCN\s+exports?\b",
+        "raw rubber exports (TSR20/RSS3)",
+        text,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r"\bRCN\b",
+        "raw rubber (TSR20/RSS3)",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r"\braw\s+cashew\s+nuts?\b",
+        "raw rubber (TSR20/RSS3)",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    return cleaned
+
+
+def clean_display_text(text: str, commodity: str = None) -> str:
     """Apply AI text postprocessing before display."""
-    return postprocess_text(text)
+    cleaned = postprocess_text(text)
+    if commodity == "rubber":
+        cleaned = normalize_rubber_terms(cleaned)
+    return cleaned
 
 
 def get_fx_rate_khr(exchange_rate, fallback: float = 4014) -> float:
@@ -1353,6 +1380,7 @@ def display_cambodia_metrics_cashew(scenario_type: str, fx_rate: float):
         f"(FOB Vietnam) | ~${kernel_usd_kg[0]:.2f}-${kernel_usd_kg[1]:.2f}/kg | "
         f"{kernel_khr_kg[0]:,.0f}-{kernel_khr_kg[1]:,.0f} KHR/kg"
     )
+    st.caption(t.get('combined_agri_hint', 'See Combined Agricultural Revenues below for national totals.'))
 
 
 def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
@@ -1499,6 +1527,8 @@ def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
         f"⚠️ Based on scenario price ${scenario_price:,.0f}/ton "
         f"({RUBBER_FARMGATE_FACTOR:.0%} FOB)"
     )
+    st.caption(t.get('combined_agri_hint', 'See Combined Agricultural Revenues below for national totals.'))
+
 
 
 def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: str, commodity: str, market_data: dict, fx_rate: float):
@@ -1510,7 +1540,7 @@ def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: st
     }
 
     # Analysis content
-    analysis_text = clean_display_text(analysis_data.get('analysis', 'Analysis not available'))
+    analysis_text = clean_display_text(analysis_data.get('analysis', 'Analysis not available'), commodity)
     st.markdown(analysis_text)
 
     # Citations

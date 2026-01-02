@@ -59,6 +59,12 @@ def postprocess_text(text: str) -> str:
         flags=re.IGNORECASE,
     )
     cleaned = re.sub(
+        r"\bCAGR\s*([0-9]+(?:\.[0-9]+)?)%\)+",
+        r"CAGR \1%",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
         r"by\s*(\d{4})\s*\(\s*CAGR\s*([0-9]+(?:\.[0-9]+)?)%?\s*\)?",
         r"by \1 (CAGR \2%)",
         cleaned,
@@ -81,16 +87,42 @@ def postprocess_text(text: str) -> str:
 
     # Fix split thousands like "6,50-0/ton" -> "6,500/ton".
     cleaned = re.sub(
-        r"\b(\d,\d{2})-0/(ton|t|kg)\b",
-        r"\g<1>0/\2",
+        r"\b(\d,\d{2})-(\d)/(ton|t|kg)\b",
+        r"\1\2/\3",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+
+    # Collapse duplicated range tokens like "1.80-1.80-2.20".
+    cleaned = re.sub(
+        r"\b(\d+(?:[.,]\d+)?)-\1-(\d+(?:[.,]\d+)?)\b",
+        r"\1-\2",
         cleaned,
         flags=re.IGNORECASE,
     )
 
     # Fix duplicated ranges like "1,8001,8002,200/ton".
     cleaned = re.sub(
-        r"\b(\d{1,3}(?:,\d{3})+)(?:\1)(\d{1,3}(?:,\d{3})+)/(ton|t|kg)\b",
-        r"\1\2/\3",
+        r"\b(\d{1,3}(?:,\d{3})+)\1(\d{1,3}(?:,\d{3})+)/(ton|t|kg)\b",
+        r"\1-\2/\3",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\b(\d{1,3}(?:,\d{3})+)(\d{1,3}(?:,\d{3})+)/(ton|t|kg)\b",
+        r"\1-\2/\3",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\b(\d+\.\d{2})\1(\d+\.\d{2})/(ton|t|kg)\b",
+        r"\1-\2/\3",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\b(\d+\.\d{2})(\d+\.\d{2})/(ton|t|kg)\b",
+        r"\1-\2/\3",
         cleaned,
         flags=re.IGNORECASE,
     )
@@ -113,6 +145,12 @@ def postprocess_text(text: str) -> str:
     cleaned = re.sub(
         r"(\d[\d,\.]*)\s*(\d[\d,\.]*)\s*/\s*(ton|kg|t)\b",
         r"\1-\2/\3",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(
+        r"\b(\d[\d,\.]*-\d[\d,\.]*)/(ton|kg|t)\b",
+        r"\1$/\2",
         cleaned,
         flags=re.IGNORECASE,
     )

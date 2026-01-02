@@ -123,6 +123,7 @@ TRANSLATIONS = {
         "stress_income": "Stress income",
         "loss": "Loss",
         "combined_agri_revenues": "Combined Agricultural Revenues - Cambodia",
+        "combined_agri_hint": "See Combined Agricultural Revenues below for national totals.",
         "total_exports": "Total Exports",
         "avg_farm_income": "Avg Farm Income",
         "revenue_distribution": "Revenue Distribution",

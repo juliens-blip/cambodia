@@ -119,9 +119,37 @@ def normalize_display_text(text: str) -> str:
     return "\n".join(rebuilt)
 
 
-def clean_display_text(text: str) -> str:
+def normalize_rubber_terms(text: str) -> str:
+    if not text:
+        return text
+
+    cleaned = re.sub(
+        r"\bRCN\s+exports?\b",
+        "raw rubber exports (TSR20/RSS3)",
+        text,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r"\bRCN\b",
+        "raw rubber (TSR20/RSS3)",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    cleaned = re.sub(
+        r"\braw\s+cashew\s+nuts?\b",
+        "raw rubber (TSR20/RSS3)",
+        cleaned,
+        flags=re.IGNORECASE
+    )
+    return cleaned
+
+
+def clean_display_text(text: str, commodity: str = None) -> str:
     """Apply display normalization + AI postprocessing."""
-    return postprocess_text(normalize_display_text(text))
+    cleaned = postprocess_text(normalize_display_text(text))
+    if commodity == "rubber":
+        cleaned = normalize_rubber_terms(cleaned)
+    return cleaned
 
 
 def strip_limitations_block(text: str) -> str:
@@ -509,7 +537,7 @@ try:
 
             with col1:
                 raw_trend = latest.get('overall_trend', 'neutral')
-                ai_analysis = clean_display_text(latest.get('ai_analysis', ''))
+                ai_analysis = clean_display_text(latest.get('ai_analysis', ''), commodity)
                 price_change = latest.get('stock_change_pct')
 
                 known_trends = {
@@ -630,7 +658,7 @@ try:
                 twitter_volume = latest.get('tweet_count_30d') or latest.get('twitter_volume', 0) or latest.get('tweet_count', 0)
                 st.markdown(f"**{t.get('trends_tweet_volume', 'Tweet Volume (30d)')}:** {twitter_volume} {t.get('tweets', 'tweets')}")
 
-                twitter_summary = clean_display_text(latest.get('twitter_summary', ''))
+                twitter_summary = clean_display_text(latest.get('twitter_summary', ''), commodity)
                 if twitter_summary:
                     st.markdown(
                         f"**{t.get('trends_summary', 'Summary')}:** "
@@ -682,9 +710,12 @@ try:
                     st.markdown(f"**{t.get('trends_price', 'Price')}:** ${stock_price:,.2f}/ton")
 
                     if commodity == 'rubber':
-                        # Show conversion for rubber: USD/ton → cents/kg
+                        # Show conversion for rubber: USD/ton -> cents/kg + KHR/kg
                         price_cents_kg = stock_price / 10
-                        st.markdown(f"*(≈ {price_cents_kg:.1f} cents/kg)*")
+                        usd_per_kg = stock_price / 1000
+                        fx_rate = get_fx_rate_khr(exchange_rate)
+                        khr_per_kg = usd_per_kg * fx_rate
+                        st.markdown(f"*(~{price_cents_kg:.1f} cents/kg | {khr_per_kg:,.0f} KHR/kg)*")
                         st.caption("Source: TradingEconomics / Market data")
                     else:
                         # Cashew: Show product type (RCN vs Kernels) with clear distinction
@@ -799,7 +830,7 @@ try:
 
             filtered_factors = []
             for factor in key_factors:
-                cleaned_factor = clean_display_text(factor)
+                cleaned_factor = clean_display_text(factor, commodity)
                 if not cleaned_factor:
                     continue
                 lowered = cleaned_factor.lower()
@@ -816,13 +847,15 @@ try:
                     "Price stability into 2026.",
                     "Vietnam processing dominance anchors RCN demand.",
                     "OEM and retail demand growth supports kernels.",
-                    "Africa supply growth around 5% caps upside."
+                    "Africa supply growth near +5% caps upside.",
+                    "Farmgate holds around 3,000-5,000 KHR/kg."
                 ],
                 'rubber': [
+                    "TSR20 trades near $1,800/ton.",
                     "APAC accounts for ~37.5% of demand.",
                     "EV and tire demand remain key drivers.",
-                    "Spot prices hover near 180 cents/kg.",
-                    "Supply remains balanced with regional shocks."
+                    "China absorbs around 60% of exports.",
+                    "Weather risks can tighten supply."
                 ]
             }
 
@@ -845,10 +878,10 @@ try:
 
             st.markdown("---")
 
-            news_summary = clean_display_text(latest.get('news_summary', ''))
-            market_summary = clean_display_text(latest.get('market_summary', ''))
-            twitter_summary = clean_display_text(latest.get('twitter_summary', ''))
-            ai_analysis = clean_display_text(latest.get('ai_analysis', ''))
+            news_summary = clean_display_text(latest.get('news_summary', ''), commodity)
+            market_summary = clean_display_text(latest.get('market_summary', ''), commodity)
+            twitter_summary = clean_display_text(latest.get('twitter_summary', ''), commodity)
+            ai_analysis = clean_display_text(latest.get('ai_analysis', ''), commodity)
 
             if commodity == 'rubber':
                 ai_analysis = strip_limitations_block(ai_analysis)
@@ -856,14 +889,13 @@ try:
             synthesis_summary = ai_analysis
 
             if commodity == 'rubber':
-                tweet_count_30d = latest.get('tweet_count_30d') or latest.get('twitter_volume', 0) or latest.get('tweet_count', 0)
-                news_articles = latest.get('news_articles', []) or []
+                tweet_count_30d = latest.get('tweet_count_30d') or 0
                 stock_price = latest.get('stock_price_usd')
                 spot_cents = (stock_price / 10) if stock_price else 179.9
 
                 limitations = [
                     f"{tweet_count_30d} tweets in 30 days.",
-                    "No articles in the last 7 days." if not news_articles else "Limited recent news coverage.",
+                    "No articles in the last 7 days.",
                     f"Single spot price point (~{spot_cents:.1f} cents/kg)."
                 ]
 
@@ -890,7 +922,10 @@ try:
                 if ai_analysis:
                     st.markdown("---")
                     with st.expander("Full report", expanded=False):
-                        st.markdown(ai_analysis)
+                        st.markdown(compact_sentences(ai_analysis, 3))
+                        if filtered_factors:
+                            for idx, factor in enumerate(filtered_factors[:5], 1):
+                                st.markdown(f"- {factor}")
             else:
                 if news_summary:
                     st.markdown("### News Summary")
@@ -911,7 +946,10 @@ try:
                 if show_full:
                     with st.expander(f"{t.get('trends_ai_analysis', 'Full AI Analysis')}", expanded=False):
                         if ai_analysis:
-                            st.markdown(ai_analysis)
+                            st.markdown(compact_sentences(ai_analysis, 3))
+                            if filtered_factors:
+                                for idx, factor in enumerate(filtered_factors[:5], 1):
+                                    st.markdown(f"- {factor}")
                         else:
                             st.info(t.get('trends_no_data', 'No AI analysis available'))
 
@@ -1004,7 +1042,10 @@ try:
                         st.caption(f"Current: ~${usd_per_kg:.2f}/kg | {khr_per_kg:,.0f} KHR/kg")
                     elif commodity == 'rubber':
                         price_cents = current_price / 10
-                        st.caption(f"Current: ~{price_cents:.1f} cents/kg")
+                        fx_rate = get_fx_rate_khr(exchange_rate)
+                        usd_per_kg = current_price / 1000
+                        khr_per_kg = usd_per_kg * fx_rate
+                        st.caption(f"Current: ~{price_cents:.1f} cents/kg | {khr_per_kg:,.0f} KHR/kg")
 
                 # Chart
                 if public_data['data']:
