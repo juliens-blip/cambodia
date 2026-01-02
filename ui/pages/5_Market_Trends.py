@@ -478,10 +478,7 @@ try:
 
                 # Validate coherence between label and content
                 trend = validate_trend_label(ai_analysis, raw_trend, price_change)
-
-                # Show warning if label was corrected
-                if trend != raw_trend:
-                    print(f"[DEBUG] Trend label corrected: {raw_trend} -> {trend}")
+                label_was_corrected = trend != raw_trend
 
                 trend_emoji = {
                     'strong_bullish': '📈🔥',
@@ -498,6 +495,12 @@ try:
                     f"{trend_emoji} {trend_label}",
                     delta=None
                 )
+
+                # Phase improvement: Show context if label corrected or discrepancy
+                if label_was_corrected:
+                    st.caption(f"Ajuste: {raw_trend} -> {trend}")
+                elif price_change and abs(price_change) > 5 and 'neutral' in trend.lower():
+                    st.caption(f"Court terme: {price_change:+.1f}% | Prevision: stable")
 
             with col2:
                 # Fix: Show "Non calculé" if no tweets found (tweet_count = 0)
@@ -529,6 +532,9 @@ try:
                         delta=None,
                         help=f"Basé sur {actual_count} tweets analysés"
                     )
+                    # Phase 3.1: Explicit tweet volume badge
+                    volume_level = "faible" if actual_count < 5 else "moyen" if actual_count < 15 else "eleve"
+                    st.caption(f"{actual_count} tweets ({volume_level})")
 
             with col3:
                 price_change = latest.get('stock_change_pct')
@@ -600,11 +606,18 @@ try:
                         st.markdown(f"*(≈ {price_cents_kg:.1f} cents/kg)*")
                         st.caption("Source: TradingEconomics / Market data")
                     else:
-                        # Cashew: Show product type (RCN vs Kernels)
+                        # Cashew: Show product type (RCN vs Kernels) with clear distinction
                         if price_type:
-                            st.caption(f"Type: {price_type}")
-                        if price_context:
-                            st.caption(price_context)
+                            if price_type == 'RCN':
+                                st.info(f"**{price_type}** - Raw Cashew Nuts (FOB Cambodia)")
+                                st.caption("Fourchette typique: $1,500-2,500/ton")
+                            elif price_type == 'Kernels':
+                                st.info(f"**{price_type}** - Processed (FOB Vietnam)")
+                                st.caption("Fourchette typique: $6,000-7,000/ton (W320)")
+                            else:
+                                st.caption(f"Type: {price_type}")
+                                if price_context:
+                                    st.caption(price_context)
 
                 stock_change = latest.get('stock_change_pct')
                 if stock_change is not None:
@@ -631,6 +644,24 @@ try:
 
                         st.caption("⚠️ Estimated from global prices")
                         st.caption("(~70% of FOB, based on Thailand -12%)")
+
+                    # Phase 4: Cambodia Rubber Snapshot
+                    st.markdown("---")
+                    st.markdown("### 🇰🇭 Cambodia Rubber Snapshot")
+
+                    snap_col1, snap_col2, snap_col3 = st.columns(3)
+                    with snap_col1:
+                        st.metric("Exports/an", "115,000 t", help="Principalement Chine et Vietnam")
+                    with snap_col2:
+                        st.metric("Familles", "80,000", help="Dependantes du caoutchouc")
+                    with snap_col3:
+                        if farmgate_khr:
+                            st.metric("Farmgate", f"{farmgate_khr:,.0f} KHR/kg")
+                        else:
+                            st.metric("Farmgate", "~4,500 KHR/kg")
+
+                    st.caption("**Destinations:** Chine 60% | Vietnam 20% | Singapour 10% | Autres 10%")
+                    st.caption("**Provinces:** Kampong Cham, Kratie, Mondulkiri, Ratanakiri")
 
             st.markdown("---")
 
