@@ -9,6 +9,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
 from ui.config import RAG_URL
+from ui.lib.text_postprocess import postprocess_text
 
 # Page config
 st.set_page_config(page_title="AI Q&A", page_icon="💬", layout="wide")
@@ -84,7 +85,7 @@ if rag_button and query:
 
             # Answer
             st.markdown(f"### {t['chat_answer']}")
-            st.markdown(data['answer'])
+            st.markdown(postprocess_text(data['answer']))
 
             # Citations
             if data.get('citations'):

@@ -99,6 +99,7 @@ TRANSLATIONS = {
         "trends_twitter_sentiment": "Twitter Sentiment",
         "trends_tweet_volume": "Tweet Volume (30d)",
         "trends_sentiment_not_enough": "Not enough data",
+        "trends_sentiment_score": "Score",
         "trend_strong_bullish": "Strong Bullish",
         "trend_bullish": "Bullish",
         "trend_slightly_bullish": "Slightly Bullish",

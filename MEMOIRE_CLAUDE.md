@@ -2856,3 +2856,11 @@ Admin Endpoint (No Rate Limit)
 
 ---
 
+### Mise a jour 2026-01-02 (UX/texte + coherence Market Trends)
+- Ajout postprocessing texte (ranges, by2030, doublons) applique aux sorties IA (Market Trends, Scenario Analysis, AI Q&A).
+- Market Trends: labels de tendance coherents (neutral sans emoji), sentiment prudent avec score + tweets, sections compactes (Twitter/News/Market/Synthesis).
+- Ajout bloc Cambodia Cashew Snapshot (production/exports/farmgate/part Vietnam) + conversions USD/kg et KHR/kg.
+- Ajout FX reference 1 USD ~ KHR sur Market Trends et Scenario Analysis.
+- Scenario Analysis: Cambodia Metrics cashew harmonisees, captions unifiees, conversions USD/kg + KHR/kg.
+
+---

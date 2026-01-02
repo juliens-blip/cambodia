@@ -13,6 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
 from ui.config import API_BASE_URL, RUBBER_FARMGATE_FACTOR
+from ui.lib.text_postprocess import postprocess_text, compact_sentences
 from ui.lib.csx_helper import save_csx_index, get_latest_csx_index
 
 # Page config
@@ -101,6 +102,42 @@ STOPWORDS = {
     "les", "des", "avec", "pour", "dans", "sur", "par", "une", "un", "et", "ou", "mais",
     "est", "sont", "ete", "etre", "avait", "ont", "ainsi", "comme", "sans", "plusieurs",
     "tres", "trop", "chez", "leurs", "cette", "ces"
+}
+
+# ============================================================================
+# FINANCIAL CONSTANTS - Scenario Analysis
+# ============================================================================
+
+SCENARIO_PROBABILITIES = {
+    'pessimistic': 0.20,
+    'realistic': 0.60,
+    'optimistic': 0.20
+}
+
+CASHEW_CONSTANTS = {
+    'export_volume_tons': 815_000,
+    'farming_families': 500_000,
+    'base_rcn_range': (1800, 2200),
+    'base_kernel_range': (6200, 6800),
+    'farmgate_factor': 0.70,
+    'stress_threshold_low': 1500,    # USD/t - critical threshold
+    'stress_threshold_high': 2500,   # USD/t - bullish threshold
+}
+
+RUBBER_CONSTANTS = {
+    'export_volume_tons': 115_000,
+    'farming_families': 80_000,
+    'default_price': 1825,
+    'farmgate_factor': 0.70,
+    'stress_threshold_low': 1550,    # USD/t - critical threshold
+    'stress_threshold_high': 2100,   # USD/t - bullish threshold
+}
+
+# Combined agri totals
+AGRI_TOTALS = {
+    'total_families': CASHEW_CONSTANTS['farming_families'] + RUBBER_CONSTANTS['farming_families'],
+    'cashew_share': CASHEW_CONSTANTS['farming_families'] / (CASHEW_CONSTANTS['farming_families'] + RUBBER_CONSTANTS['farming_families']),
+    'rubber_share': RUBBER_CONSTANTS['farming_families'] / (CASHEW_CONSTANTS['farming_families'] + RUBBER_CONSTANTS['farming_families']),
 }
 
 # Title
@@ -236,6 +273,20 @@ def format_number(value, decimals: int = 0) -> str:
     if decimals == 0:
         return f"{value:,.0f}"
     return f"{value:,.{decimals}f}"
+
+
+def clean_display_text(text: str) -> str:
+    """Apply AI text postprocessing before display."""
+    return postprocess_text(text)
+
+
+def get_fx_rate_khr(exchange_rate, fallback: float = 4014) -> float:
+    if not exchange_rate:
+        return fallback
+    avg = parse_number(exchange_rate.get("average"))
+    bid = parse_number(exchange_rate.get("bid"))
+    ask = parse_number(exchange_rate.get("ask"))
+    return avg or bid or ask or fallback
 
 
 def get_last_valid_csx_index():
@@ -909,7 +960,7 @@ def display_key_tweet(twitter_data):
             st.markdown(f"""
             <div style="background-color: #1a1a2e; padding: 15px; border-radius: 10px; border-left: 4px solid #1DA1F2;">
                 <p style="margin: 0; font-size: 14px; color: #1DA1F2;"><strong>@{key_tweet.get('username', 'unknown')}</strong></p>
-                <p style="margin: 10px 0; font-size: 15px; color: #e0e0e0;">{key_tweet.get('text', '')}</p>
+                <p style="margin: 10px 0; font-size: 15px; color: #e0e0e0;">{clean_display_text(key_tweet.get('text', ''))}</p>
                 <p style="margin: 0; font-size: 12px; color: #657786;">
                     ❤️ {key_tweet.get('likes', 0)} • 🔄 {key_tweet.get('retweets', 0)} •
                     {key_tweet.get('created_at', 'N/A')}
@@ -924,7 +975,7 @@ def display_key_tweet(twitter_data):
                     st.markdown(f"""
                     <div style="background-color: #16213e; padding: 12px; border-radius: 8px; margin-bottom: 10px; border-left: 3px solid #1DA1F2;">
                         <p style="margin: 0; font-size: 13px; color: #1DA1F2;"><strong>@{tweet.get('username', 'unknown')}</strong></p>
-                        <p style="margin: 8px 0; font-size: 14px; color: #d0d0d0;">{tweet.get('text', '')}</p>
+                        <p style="margin: 8px 0; font-size: 14px; color: #d0d0d0;">{clean_display_text(tweet.get('text', ''))}</p>
                         <p style="margin: 0; font-size: 11px; color: #657786;">
                             ❤️ {tweet.get('likes', 0)} • 🔄 {tweet.get('retweets', 0)} • {tweet.get('created_at', 'N/A')}
                         </p>
@@ -937,7 +988,7 @@ def display_key_tweet(twitter_data):
 
 
 
-def display_cambodia_metrics_cashew(scenario_type: str):
+def display_cambodia_metrics_cashew(scenario_type: str, fx_rate: float):
     # Base ranges (USD/ton)
     base_rcn_range = (1800, 2200)
     base_kernel_range = (6200, 6800)
@@ -952,11 +1003,15 @@ def display_cambodia_metrics_cashew(scenario_type: str):
 
     rcn_range = (base_rcn_range[0] * multiplier, base_rcn_range[1] * multiplier)
     farmgate_factor = 0.70
-    usd_khr = 4050
+    usd_khr = fx_rate or 4014
+    rcn_usd_kg = (rcn_range[0] / 1000, rcn_range[1] / 1000)
+    rcn_khr_kg = (rcn_usd_kg[0] * usd_khr, rcn_usd_kg[1] * usd_khr)
+
     farmgate_range_khr = (
-        (rcn_range[0] / 1000) * farmgate_factor * usd_khr,
-        (rcn_range[1] / 1000) * farmgate_factor * usd_khr
+        rcn_usd_kg[0] * farmgate_factor * usd_khr,
+        rcn_usd_kg[1] * farmgate_factor * usd_khr
     )
+    farmgate_range_usd = (farmgate_range_khr[0] / usd_khr, farmgate_range_khr[1] / usd_khr)
 
     export_volume_tons = 815_000
     export_revenue_range = (
@@ -971,58 +1026,63 @@ def display_cambodia_metrics_cashew(scenario_type: str):
             'realistic': "revenus stables",
             'optimistic': "revenus en hausse"
         }
+        labels = {
+            'rcn_range': "Fourchette RCN FOB",
+            'farmgate_range': "Fourchette farmgate",
+            'export_revenue': "Revenu export",
+            'families': "Familles affectees",
+            'rcn_caption': "RCN FOB Cambodge",
+            'farmgate_caption': f"~{farmgate_factor:.0%} du FOB",
+            'export_caption': f"{export_volume_tons:,} tonnes",
+            'kernel_caption': "Reference W320 kernels"
+        }
     else:
         status_map = {
             'pessimistic': "income down",
             'realistic': "income stable",
             'optimistic': "income up"
         }
-    labels = {
-        'rcn_range': "RCN FOB Range",
-        'farmgate_range': "Farmgate Range",
-        'export_revenue': "Export Revenue",
-        'families': "Families Affected",
-        'rcn_caption': "RCN FOB Cambodia",
-        'farmgate_caption': f"? {farmgate_factor:.0%} of FOB",
-        'export_caption': f"{export_volume_tons:,} tons",
-        'kernel_caption': "Kernel W320 reference range"
-    }
-    if language == "fr":
         labels = {
-            'rcn_range': "Fourchette RCN FOB",
-            'farmgate_range': "Fourchette farmgate",
-            'export_revenue': "Revenu export",
-            'families': "Familles affect?es",
-            'rcn_caption': "RCN FOB Cambodge",
-            'farmgate_caption': f"? {farmgate_factor:.0%} du FOB",
-            'export_caption': f"{export_volume_tons:,} tonnes",
-            'kernel_caption': "R?f?rence W320 kernels"
+            'rcn_range': "RCN FOB Range",
+            'farmgate_range': "Farmgate Range",
+            'export_revenue': "Export Revenue",
+            'families': "Families Affected",
+            'rcn_caption': "RCN FOB Cambodia",
+            'farmgate_caption': f"~{farmgate_factor:.0%} of FOB",
+            'export_caption': f"{export_volume_tons:,} tons",
+            'kernel_caption': "Kernel W320 reference"
         }
 
-
     st.markdown("---")
-    st.markdown(f"### ???? {t.get('cambodia_impact', 'Cambodia Impact')}")
+    st.markdown(f"### {t.get('cambodia_impact', 'Cambodia Impact')}")
 
     col1, col2, col3, col4 = st.columns(4)
 
     with col1:
         st.metric(
             labels["rcn_range"],
-            f"${rcn_range[0]:,.0f}?${rcn_range[1]:,.0f}/t"
+            f"${rcn_range[0]:,.0f}-${rcn_range[1]:,.0f}/t"
         )
         st.caption(labels["rcn_caption"])
+        st.caption(
+            f"~${rcn_usd_kg[0]:.2f}-${rcn_usd_kg[1]:.2f}/kg | "
+            f"{rcn_khr_kg[0]:,.0f}-{rcn_khr_kg[1]:,.0f} KHR/kg"
+        )
 
     with col2:
         st.metric(
             labels["farmgate_range"],
-            f"{farmgate_range_khr[0]:,.0f}?{farmgate_range_khr[1]:,.0f} KHR/kg"
+            f"{farmgate_range_khr[0]:,.0f}-{farmgate_range_khr[1]:,.0f} KHR/kg"
         )
         st.caption(labels["farmgate_caption"])
+        st.caption(
+            f"~${farmgate_range_usd[0]:.2f}-${farmgate_range_usd[1]:.2f}/kg"
+        )
 
     with col3:
         st.metric(
             labels["export_revenue"],
-            f"${export_revenue_range[0] / 1_000_000_000:.2f}?${export_revenue_range[1] / 1_000_000_000:.2f}B"
+            f"${export_revenue_range[0] / 1_000_000_000:.2f}-${export_revenue_range[1] / 1_000_000_000:.2f}B"
         )
         st.caption(labels["export_caption"])
 
@@ -1033,9 +1093,12 @@ def display_cambodia_metrics_cashew(scenario_type: str):
         )
         st.caption(status_map.get(scenario_type, "income stable"))
 
+    kernel_usd_kg = (base_kernel_range[0] / 1000, base_kernel_range[1] / 1000)
+    kernel_khr_kg = (kernel_usd_kg[0] * usd_khr, kernel_usd_kg[1] * usd_khr)
     st.caption(
-        f"{labels['kernel_caption']}: ${base_kernel_range[0]:,.0f}?${base_kernel_range[1]:,.0f}/t "
-        f"(FOB Vietnam)"
+        f"{labels['kernel_caption']}: ${base_kernel_range[0]:,.0f}-${base_kernel_range[1]:,.0f}/t "
+        f"(FOB Vietnam) | ~${kernel_usd_kg[0]:.2f}-${kernel_usd_kg[1]:.2f}/kg | "
+        f"{kernel_khr_kg[0]:,.0f}-{kernel_khr_kg[1]:,.0f} KHR/kg"
     )
 
 
@@ -1073,6 +1136,8 @@ def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
     # Calculate farmgate price (configurable share of FOB)
     farmgate_usd_kg = (scenario_price / 1000) * RUBBER_FARMGATE_FACTOR
     farmgate_khr_kg = farmgate_usd_kg * 4050  # Current exchange rate
+    farmgate_usd_ton = farmgate_usd_kg * 1000
+    farmgate_cents_kg = farmgate_usd_kg * 100
 
     # Display Cambodia Impact section
     st.markdown("---")
@@ -1167,7 +1232,7 @@ def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
     )
 
 
-def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: str, commodity: str, market_data: dict):
+def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: str, commodity: str, market_data: dict, fx_rate: float):
     """Display a single scenario analysis."""
     scenario_emoji = {
         'pessimistic': '📉',
@@ -1176,7 +1241,8 @@ def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: st
     }
 
     # Analysis content
-    st.markdown(analysis_data.get('analysis', 'Analysis not available'))
+    analysis_text = clean_display_text(analysis_data.get('analysis', 'Analysis not available'))
+    st.markdown(analysis_text)
 
     # Citations
     citations = analysis_data.get('citations', [])
@@ -1199,7 +1265,7 @@ def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: st
     if commodity == 'rubber':
         display_cambodia_impact_rubber(market_data, scenario_type)
     elif commodity == 'cashew':
-        display_cambodia_metrics_cashew(scenario_type)
+        display_cambodia_metrics_cashew(scenario_type, fx_rate)
 
 
 # Sidebar refresh for macro indicators (after function definitions)
@@ -1261,6 +1327,8 @@ try:
 
     # Display macro indicators
     display_macro_indicators(exchange_rate, csx_summary_stats, csx_index)
+    fx_rate = get_fx_rate_khr(exchange_rate)
+    st.caption(f"FX reference: 1 USD ~ {fx_rate:,.0f} KHR (MEF/NBC)")
 
     st.markdown("---")
 
@@ -1295,7 +1363,7 @@ try:
                 macro_context
             )
 
-        display_scenario_analysis('pessimistic', pessimistic, '#ff4b4b', commodity, market_data)
+        display_scenario_analysis('pessimistic', pessimistic, '#ff4b4b', commodity, market_data, fx_rate)
 
     with tab2:
         st.markdown(f"## {t.get('scenario_realistic', '⚖️ Realistic Analysis')}")
@@ -1311,7 +1379,7 @@ try:
                 macro_context
             )
 
-        display_scenario_analysis('realistic', realistic, '#ffa500', commodity, market_data)
+        display_scenario_analysis('realistic', realistic, '#ffa500', commodity, market_data, fx_rate)
 
     with tab3:
         st.markdown(f"## {t.get('scenario_optimistic', '📈 Optimistic Analysis')}")
@@ -1327,7 +1395,7 @@ try:
                 macro_context
             )
 
-        display_scenario_analysis('optimistic', optimistic, '#00cc66', commodity, market_data)
+        display_scenario_analysis('optimistic', optimistic, '#00cc66', commodity, market_data, fx_rate)
 
 except Exception as e:
     st.error(f"{t.get('error', 'Error')}: {str(e)}")

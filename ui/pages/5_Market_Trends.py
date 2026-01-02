@@ -1,6 +1,7 @@
 """Market Trends - Twitter/X sentiment and stock market analysis."""
 import streamlit as st
 import json
+import re
 import sys
 import os
 import httpx
@@ -16,6 +17,7 @@ from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
 from ui.config import TRENDS_URL, RUBBER_FARMGATE_FACTOR
 from ui.lib.csx_helper import save_csx_index, get_latest_csx_index
+from ui.lib.text_postprocess import postprocess_text, compact_sentences, unique_lines
 
 # Page config
 st.set_page_config(page_title="Market Trends", page_icon="📈", layout="wide")
@@ -115,6 +117,20 @@ def normalize_display_text(text: str) -> str:
 
     flush_buffer()
     return "\n".join(rebuilt)
+
+
+def clean_display_text(text: str) -> str:
+    """Apply display normalization + AI postprocessing."""
+    return postprocess_text(normalize_display_text(text))
+
+
+def get_fx_rate_khr(exchange_rate, fallback: float = 4014) -> float:
+    if not exchange_rate:
+        return fallback
+    avg = parse_number(exchange_rate.get("average"))
+    bid = parse_number(exchange_rate.get("bid"))
+    ask = parse_number(exchange_rate.get("ask"))
+    return avg or bid or ask or fallback
 
 
 def validate_trend_label(ai_analysis: str, current_label: str, price_change_pct: float = None) -> str:
@@ -320,7 +336,7 @@ def summarize_csx_summary(summary_rows):
 
 
 def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
-    """Display macro indicators from MEF realtime API."""
+    # Display macro indicators from MEF realtime API.
     st.markdown(f"### {t.get('macro_indicators', 'Macro Indicators')}")
     st.caption(f"{t.get('trends_source', 'Source')}: MEF/NBC/CSX")
     if not exchange_rate and not csx_summary_stats.get("count", 0) and not csx_index:
@@ -381,8 +397,6 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
                 f"{t.get('macro_volume', 'Volume')}: {volume_text}"
             )
 
-
-
     with col3:
         index_value = None
         change_pct = None
@@ -432,12 +446,12 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
                 t.get('macro_csx_index', 'CSX Index'),
                 "N/A"
             )
-            if csx_index:
-                if updated_at:
-                    if language == "fr":
-                        st.caption(f"Indice indisponible (valeurs null). Maj: {updated_at}")
-                    else:
-                        st.caption(f"Index unavailable (null values). Updated: {updated_at}")
+            if csx_index and updated_at:
+                if language == "fr":
+                    st.caption(f"Indice indisponible (valeurs null). Maj: {updated_at}")
+                else:
+                    st.caption(f"Index unavailable (null values). Updated: {updated_at}")
+
 
 # Sidebar refresh for macro indicators (after function definitions)
 if st.sidebar.button("Refresh Macro"):
@@ -474,7 +488,7 @@ try:
 
             with col1:
                 raw_trend = latest.get('overall_trend', 'neutral')
-                ai_analysis = normalize_display_text(latest.get('ai_analysis', ''))
+                ai_analysis = clean_display_text(latest.get('ai_analysis', ''))
                 price_change = latest.get('stock_change_pct')
 
                 known_trends = {
@@ -491,49 +505,63 @@ try:
                     ai_analysis, raw_trend, price_change
                 )
 
-                trend_emoji = {
-                    'strong_bullish': '????',
-                    'bullish': '??',
-                    'slightly_bullish': '??',
-                    'neutral': '??',
-                    'slightly_bearish': '??',
-                    'bearish': '??',
-                    'strong_bearish': '????'
-                }.get(trend, '??')
-
                 trend_label = t.get(f'trend_{trend}', trend.replace('_', ' ').title())
+
+                trend_emoji = {
+                    'strong_bullish': '📈🔥',
+                    'bullish': '📈',
+                    'slightly_bullish': '📈',
+                    'neutral': '',
+                    'slightly_bearish': '📉',
+                    'bearish': '📉',
+                    'strong_bearish': '📉🔥'
+                }.get(trend, '')
+
+
+                trend_display = f"{trend_emoji} {trend_label}".strip()
 
                 st.metric(
                     t.get('trends_overall_trend', 'Overall Trend'),
-                    f"{trend_emoji} {trend_label}",
+                    trend_display,
                     delta=None
                 )
 
             with col2:
                 tweet_count = latest.get('tweet_count', 0) or 0
                 twitter_volume = latest.get('twitter_volume', 0) or 0
-                tweet_count_30d = twitter_volume if twitter_volume else tweet_count
+                tweet_count_30d = latest.get('tweet_count_30d') or twitter_volume or tweet_count
                 sentiment_label = latest.get('twitter_sentiment', 'neutral')
+                sentiment_score = latest.get('twitter_sentiment_score')
+
+                if sentiment_score is None:
+                    sentiment_score = {
+                        'bullish': 0.3,
+                        'neutral': 0.0,
+                        'bearish': -0.3
+                    }.get(sentiment_label, 0.0)
 
                 if sentiment_label == 'unknown' or tweet_count_30d < 10:
+                    not_enough = t.get('trends_sentiment_not_enough', 'Not enough data')
                     st.metric(
                         t.get('trends_twitter_sentiment', 'Twitter Sentiment'),
-                        t.get('trends_sentiment_not_enough', 'Not enough data'),
-                        delta=None,
-                        help=f"{tweet_count_30d} tweets in 30 days"
+                        f"{not_enough} ({tweet_count_30d} {t.get('tweets', 'tweets')} / 30d)",
+                        delta=None
                     )
                 else:
                     sentiment_emoji = {
-                        'bullish': '??',
-                        'bearish': '??',
-                        'neutral': '??'
-                    }.get(sentiment_label, '??')
+                        'bullish': '😊',
+                        'bearish': '😟',
+                        'neutral': '😐'
+                    }.get(sentiment_label, '')
 
                     st.metric(
                         t.get('trends_twitter_sentiment', 'Twitter Sentiment'),
-                        f"{sentiment_emoji} {sentiment_label.capitalize()}",
-                        delta=None,
-                        help=f"{tweet_count_30d} tweets in 30 days"
+                        f"{sentiment_emoji} {sentiment_label.capitalize()}".strip(),
+                        delta=None
+                    )
+                    st.caption(
+                        f"{t.get('trends_sentiment_score', 'Score')}: {sentiment_score:.2f} | "
+                        f"{t.get('tweets', 'Tweets')}: {tweet_count_30d}"
                     )
 
 
@@ -566,29 +594,52 @@ try:
             csx_summary_stats = summarize_csx_summary(csx_summary)
 
             display_macro_indicators(exchange_rate, csx_summary_stats, csx_index)
+            fx_rate = get_fx_rate_khr(exchange_rate)
+            st.caption(f"FX reference: 1 USD ~ {fx_rate:,.0f} KHR (MEF/NBC)")
 
             st.markdown("---")
 
             # Twitter Analysis
+            tweet_lines = []
             col1, col2 = st.columns([2, 1])
 
             with col1:
                 st.markdown(f"### 🐦 {t.get('trends_twitter_analysis', 'Twitter/X Analysis')}")
 
-                twitter_volume = latest.get('twitter_volume', 0) or latest.get('tweet_count', 0)
+                twitter_volume = latest.get('tweet_count_30d') or latest.get('twitter_volume', 0) or latest.get('tweet_count', 0)
                 st.markdown(f"**{t.get('trends_tweet_volume', 'Tweet Volume (30d)')}:** {twitter_volume} {t.get('tweets', 'tweets')}")
 
-                twitter_summary = normalize_display_text(latest.get('twitter_summary', ''))
+                twitter_summary = clean_display_text(latest.get('twitter_summary', ''))
                 if twitter_summary:
-                    st.markdown(f"**{t.get('trends_summary', 'Summary')}:** {twitter_summary}")
+                    st.markdown(
+                        f"**{t.get('trends_summary', 'Summary')}:** "
+                        f"{compact_sentences(twitter_summary, 3)}"
+                    )
 
                 # Top tweets
                 top_tweets = latest.get('top_tweets', [])
+                tweet_lines = []
                 if top_tweets:
+                    for tweet in top_tweets:
+                        if isinstance(tweet, dict):
+                            line = tweet.get('text', '')
+                            username = tweet.get('username')
+                            created_at = tweet.get('created_at')
+                            if username:
+                                suffix = f"@{username}"
+                                if created_at:
+                                    suffix = f"{suffix} ({created_at})"
+                                line = f"{line} - {suffix}"
+                        else:
+                            line = str(tweet)
+                        if line:
+                            tweet_lines.append(clean_display_text(line))
+                    tweet_lines = unique_lines(tweet_lines)
+
+                if tweet_lines:
                     st.markdown(f"**{t.get('trends_top_tweets', 'Top Tweets')}:**")
-                    for idx, tweet in enumerate(top_tweets[:5], 1):
-                        cleaned_tweet = normalize_display_text(tweet)
-                        st.markdown(f"{idx}. *\"{cleaned_tweet}\"*")
+                    for idx, tweet in enumerate(tweet_lines[:5], 1):
+                        st.markdown(f"{idx}. *\"{tweet}\"*")
 
             with col2:
                 st.markdown(f"### 📊 {t.get('trends_stock_market', 'Stock Market')}")
@@ -628,6 +679,11 @@ try:
                                 if price_context:
                                     st.caption(price_context)
 
+                        fx_rate = get_fx_rate_khr(exchange_rate)
+                        usd_per_kg = stock_price / 1000
+                        khr_per_kg = usd_per_kg * fx_rate
+                        st.caption(f"≈ ${usd_per_kg:.2f}/kg | {khr_per_kg:,.0f} KHR/kg")
+
                 stock_change = latest.get('stock_change_pct')
                 if stock_change is not None:
                     color = "green" if stock_change > 0 else "red" if stock_change < 0 else "gray"
@@ -647,47 +703,124 @@ try:
                         st.markdown("**Farmgate Estimate (Cambodia):**")
 
                         if farmgate_khr:
-                            st.markdown(f"• {farmgate_khr:,.0f} KHR/kg")
+                            st.markdown(f"{farmgate_khr:,.0f} KHR/kg")
                         if farmgate_usd:
-                            st.markdown(f"• ${farmgate_usd:.2f} USD/kg")
+                            farmgate_usd_ton = farmgate_usd * 1000
+                            st.markdown(f"~${farmgate_usd_ton:,.0f} USD/ton")
 
-                        st.caption("⚠️ Estimated from global prices")
+                        st.caption("Estimated from global prices")
                         st.caption(f"(~{RUBBER_FARMGATE_FACTOR:.0%} of FOB, based on Thailand -12%)")
 
-                    # Phase 4: Cambodia Rubber Snapshot
                     st.markdown("---")
-                    st.markdown("### 🇰🇭 Cambodia Rubber Snapshot")
+                    st.markdown("### Cambodia Rubber Snapshot")
 
                     snap_col1, snap_col2, snap_col3 = st.columns(3)
                     with snap_col1:
-                        st.metric("Exports/an", "115,000 t", help="Principalement Chine et Vietnam")
+                        st.metric("Exports/yr", "115,000 t", help="Mainly China and Vietnam")
                     with snap_col2:
-                        st.metric("Familles", "80,000", help="Dependantes du caoutchouc")
+                        st.metric("Families", "80,000", help="Dependent on rubber")
                     with snap_col3:
-                        st.metric("Farmgate", "3,500–4,000 KHR/kg")
-                        st.caption("≈ $1,000–1,150 USD/ton")
+                        st.metric("Farmgate", "3,500-4,000 KHR/kg")
+                        st.caption("~$1,000-1,150 USD/ton")
 
-                    st.caption("**Destinations:** Chine 60% | Vietnam 20% | Singapour 10% | Autres 10%")
-                    st.caption("**Provinces:** Kampong Cham, Kratie, Mondulkiri, Ratanakiri")
+                    st.caption("Destinations: China 60% | Vietnam 20% | Singapore 10% | Other 10%")
+                    st.caption("Provinces: Kampong Cham, Kratie, Mondulkiri, Ratanakiri")
+
+                elif commodity == 'cashew':
+                    st.markdown("---")
+                    st.markdown("### Cambodia Cashew Snapshot")
+
+                    snap_col1, snap_col2, snap_col3 = st.columns(3)
+                    with snap_col1:
+                        st.metric("Production", "850,000 t")
+                    with snap_col2:
+                        st.metric("Exports", "815,000 t")
+                    with snap_col3:
+                        st.metric("Export revenue", "$1.1-1.5B")
+
+                    snap_col4, snap_col5, snap_col6 = st.columns(3)
+                    with snap_col4:
+                        st.metric("Families", "500,000")
+                    with snap_col5:
+                        st.metric("Farmgate", "3,000-5,000 KHR/kg")
+                    with snap_col6:
+                        st.metric("Vietnam share", "90%")
+
+                    fx_rate = get_fx_rate_khr(exchange_rate)
+                    rcn_low, rcn_high = 1800, 2200
+                    kernel_low, kernel_high = 6200, 6800
+                    rcn_usd_kg = (rcn_low / 1000, rcn_high / 1000)
+                    kernel_usd_kg = (kernel_low / 1000, kernel_high / 1000)
+                    rcn_khr = (rcn_usd_kg[0] * fx_rate, rcn_usd_kg[1] * fx_rate)
+                    kernel_khr = (kernel_usd_kg[0] * fx_rate, kernel_usd_kg[1] * fx_rate)
+
+                    st.caption(
+                        f"RCN FOB Cambodia: ${rcn_low:,.0f}-${rcn_high:,.0f}/ton "
+                        f"(~${rcn_usd_kg[0]:.2f}-${rcn_usd_kg[1]:.2f}/kg | "
+                        f"{rcn_khr[0]:,.0f}-{rcn_khr[1]:,.0f} KHR/kg)"
+                    )
+                    st.caption(
+                        f"Kernels W320 FOB Vietnam: ${kernel_low:,.0f}-${kernel_high:,.0f}/ton "
+                        f"(~${kernel_usd_kg[0]:.2f}-${kernel_usd_kg[1]:.2f}/kg | "
+                        f"{kernel_khr[0]:,.0f}-{kernel_khr[1]:.0f} KHR/kg)"
+                    )
 
             st.markdown("---")
 
-            # Key Factors
-            st.markdown(f"### 🔑 {t.get('trends_key_factors', 'Key Factors')}")
+            st.markdown(f"### {t.get('trends_key_factors', 'Key Factors')}")
             key_factors = latest.get('key_factors', [])
 
-            if key_factors:
-                for idx, factor in enumerate(key_factors, 1):
-                    cleaned_factor = normalize_display_text(factor)
-                    st.markdown(f"{idx}. {cleaned_factor}")
+            tweet_keys = set()
+            for line in tweet_lines:
+                key = re.sub(r"[^a-z0-9]+", "", line.lower())
+                if key:
+                    tweet_keys.add(key)
+
+            filtered_factors = []
+            for factor in key_factors:
+                cleaned_factor = clean_display_text(factor)
+                if not cleaned_factor:
+                    continue
+                lowered = cleaned_factor.lower()
+                if "tweet" in lowered or "retweet" in lowered:
+                    continue
+                factor_key = re.sub(r"[^a-z0-9]+", "", lowered)
+                if factor_key:
+                    if factor_key in tweet_keys or any(factor_key in tk or tk in factor_key for tk in tweet_keys):
+                        continue
+                filtered_factors.append(compact_sentences(cleaned_factor, 1))
+
+            if filtered_factors:
+                for idx, factor in enumerate(filtered_factors[:5], 1):
+                    st.markdown(f"{idx}. {factor}")
             else:
                 st.info(t.get('trends_no_data', 'No key factors extracted'))
 
             st.markdown("---")
 
+            # News Summary (compact)
+            news_summary = clean_display_text(latest.get('news_summary', ''))
+            if news_summary:
+                st.markdown("### 📰 News Summary")
+                st.markdown(compact_sentences(news_summary, 3))
+                st.markdown("---")
+
+            # Market Data Summary (compact)
+            market_summary = clean_display_text(latest.get('market_summary', ''))
+            if market_summary:
+                st.markdown("### 📊 Market Data Summary")
+                st.markdown(compact_sentences(market_summary, 3))
+                st.markdown("---")
+
+            synthesis_summary = clean_display_text(latest.get('ai_analysis', ''))
+            if synthesis_summary:
+                st.markdown("### 🧩 Integrated Synthesis")
+                st.markdown(compact_sentences(synthesis_summary, 3))
+                st.markdown("---")
+
             # AI Analysis
             with st.expander(f"🤖 {t.get('trends_ai_analysis', 'Full AI Analysis')}", expanded=False):
-                ai_analysis = normalize_display_text(latest.get('ai_analysis', ''))
+                ai_analysis = clean_display_text(latest.get('ai_analysis', ''))
                 if ai_analysis:
                     st.markdown(ai_analysis)
                 else:
@@ -732,15 +865,19 @@ try:
                 elif commodity == 'cashew' and current_price:
                     # Fallback: auto-detect from price range
                     if current_price > 5000:
-                        basis_label = "Kernels (prix > $5,000 = transformed)"
+                        basis_label = "Kernels W320 FOB Vietnam (inferred)"
                     elif current_price < 3000:
-                        basis_label = "RCN (prix < $3,000 = raw nuts)"
+                        basis_label = "RCN FOB Cambodia (inferred)"
                 elif commodity == 'rubber':
-                    basis_label = "Natural Rubber spot"
+                    basis_label = "Natural rubber spot"
 
                 if basis_label or price_type:
                     details = basis_label or price_type or "Benchmark"
                     st.info(f"**Segment:** {details}")
+                if price_basis:
+                    st.caption(f"price_basis: {price_basis}")
+                if price_type:
+                    st.caption(f"price_type: {price_type}")
 
                 # Statistics
                 col1, col2, col3, col4 = st.columns(4)
@@ -769,6 +906,16 @@ try:
                         t.get('trends_lowest', 'Lowest'),
                         f"${stats['lowest']:,.0f}/ton"
                     )
+
+                if current_price:
+                    if commodity == 'cashew':
+                        fx_rate = get_fx_rate_khr(exchange_rate)
+                        usd_per_kg = current_price / 1000
+                        khr_per_kg = usd_per_kg * fx_rate
+                        st.caption(f"Current: ~${usd_per_kg:.2f}/kg | {khr_per_kg:,.0f} KHR/kg")
+                    elif commodity == 'rubber':
+                        price_cents = current_price / 10
+                        st.caption(f"Current: ~{price_cents:.1f} cents/kg")
 
                 # Chart
                 if public_data['data']:

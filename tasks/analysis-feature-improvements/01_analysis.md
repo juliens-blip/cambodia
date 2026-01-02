@@ -27,3 +27,11 @@ Objectif: cohérence des ranges RCN/kernels, tendances plus prudentes, et métri
 - Éviter d’ajouter des colonnes Supabase non existantes; réutiliser `overall_trend` pour stocker le label résolu.
 - Conserver la compatibilité UI avec les anciens enregistrements (fallback si label inconnu).
 - Maintenir les ranges cashew cohérents partout (RCN 1,800–2,200 / Kernels 6,200–6,800).
+
+## Addendum - UX/texte (2026-01-02)
+- Postprocess sur tous les textes IA avant affichage (ranges, "by2030", doublons, sequences "??").
+- Unites uniformes: cashew (USD/ton + USD/kg + KHR/kg), rubber (cents/kg + USD/ton + KHR/kg farmgate).
+- Tendances: supprimer "?? Neutral"; emojis coherents et labels compacts.
+- Sentiment: afficher "Not enough data" si tweets < 10, sinon montrer Score + Tweets.
+- Ajouter un bloc "Cambodia Snapshot" cashew sur Market Trends.
+- Compacter Twitter/News/Market Data/Synthesis (2-3 phrases, 3-5 bullets).

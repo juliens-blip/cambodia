@@ -35,3 +35,15 @@ Uniformiser les prix cashew, rendre les tendances/sentiments prudents, et harmon
 6. Finalisation
    - Mettre à jour `tasks/analysis-feature-improvements/03_implementation_log.md`.
    - Commit + push.
+
+## Addendum - UX/texte (2026-01-02)
+7. Postprocessing texte
+   - Ajouter une fonction generique de nettoyage (ranges, by2030, doublons) et l'appliquer aux sorties IA (Market Trends, Scenario, AI Q&A).
+
+8. Unites & FX reference
+   - Cashew: USD/ton + USD/kg + KHR/kg partout; afficher "1 USD ~ 4,014 KHR" par page.
+   - Rubber: cents/kg + USD/ton + KHR/kg pour farmgate.
+
+9. UX Market Trends
+   - Corriger emojis/labels (neutral sans emoji), afficher Score + Tweets pour sentiment.
+   - Ajouter Cambodia Snapshot cashew et compacter sections Twitter/News/Market/Synthesis.
