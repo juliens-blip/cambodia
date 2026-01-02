@@ -1468,7 +1468,7 @@ def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
         margin=dict(t=20, b=20, l=20, r=20)
     )
 
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, key=f"rubber_export_pie_{scenario_type}")
 
     # FX Sensitivity table
     st.markdown("#### 💱 FX Sensitivity (USD/KHR)")
