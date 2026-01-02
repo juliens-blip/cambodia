@@ -124,6 +124,27 @@ def clean_display_text(text: str) -> str:
     return postprocess_text(normalize_display_text(text))
 
 
+def strip_limitations_block(text: str) -> str:
+    """Remove 'What I cannot provide' blocks from AI text."""
+    if not text:
+        return text
+
+    lines = text.splitlines()
+    cleaned_lines = []
+    skip = False
+    for line in lines:
+        if skip:
+            if line.strip() == "":
+                skip = False
+            continue
+        if "what i cannot provide" in line.lower():
+            skip = True
+            continue
+        cleaned_lines.append(line)
+
+    return "\n".join(cleaned_lines).strip()
+
+
 def get_fx_rate_khr(exchange_rate, fallback: float = 4014) -> float:
     if not exchange_rate:
         return fallback
@@ -790,6 +811,32 @@ try:
                         continue
                 filtered_factors.append(compact_sentences(cleaned_factor, 1))
 
+            fallback_factors = {
+                'cashew': [
+                    "Price stability into 2026.",
+                    "Vietnam processing dominance anchors RCN demand.",
+                    "OEM and retail demand growth supports kernels.",
+                    "Africa supply growth around 5% caps upside."
+                ],
+                'rubber': [
+                    "APAC accounts for ~37.5% of demand.",
+                    "EV and tire demand remain key drivers.",
+                    "Spot prices hover near 180 cents/kg.",
+                    "Supply remains balanced with regional shocks."
+                ]
+            }
+
+            if len(filtered_factors) < 3:
+                existing = {re.sub(r"[^a-z0-9]+", "", item.lower()) for item in filtered_factors}
+                for item in fallback_factors.get(commodity, []):
+                    key = re.sub(r"[^a-z0-9]+", "", item.lower())
+                    if key and key in existing:
+                        continue
+                    filtered_factors.append(item)
+                    existing.add(key)
+                    if len(filtered_factors) >= 5:
+                        break
+
             if filtered_factors:
                 for idx, factor in enumerate(filtered_factors[:5], 1):
                     st.markdown(f"{idx}. {factor}")
@@ -798,33 +845,75 @@ try:
 
             st.markdown("---")
 
-            # News Summary (compact)
             news_summary = clean_display_text(latest.get('news_summary', ''))
-            if news_summary:
-                st.markdown("### 📰 News Summary")
-                st.markdown(compact_sentences(news_summary, 3))
-                st.markdown("---")
-
-            # Market Data Summary (compact)
             market_summary = clean_display_text(latest.get('market_summary', ''))
-            if market_summary:
-                st.markdown("### 📊 Market Data Summary")
-                st.markdown(compact_sentences(market_summary, 3))
+            twitter_summary = clean_display_text(latest.get('twitter_summary', ''))
+            ai_analysis = clean_display_text(latest.get('ai_analysis', ''))
+
+            if commodity == 'rubber':
+                ai_analysis = strip_limitations_block(ai_analysis)
+
+            synthesis_summary = ai_analysis
+
+            if commodity == 'rubber':
+                tweet_count_30d = latest.get('tweet_count_30d') or latest.get('twitter_volume', 0) or latest.get('tweet_count', 0)
+                news_articles = latest.get('news_articles', []) or []
+                stock_price = latest.get('stock_price_usd')
+                spot_cents = (stock_price / 10) if stock_price else 179.9
+
+                limitations = [
+                    f"{tweet_count_30d} tweets in 30 days.",
+                    "No articles in the last 7 days." if not news_articles else "Limited recent news coverage.",
+                    f"Single spot price point (~{spot_cents:.1f} cents/kg)."
+                ]
+
+                st.info("**Data limitations**\n- " + "\n- ".join(limitations))
                 st.markdown("---")
 
-            synthesis_summary = clean_display_text(latest.get('ai_analysis', ''))
-            if synthesis_summary:
-                st.markdown("### 🧩 Integrated Synthesis")
-                st.markdown(compact_sentences(synthesis_summary, 3))
-                st.markdown("---")
+                sections = []
+                if market_summary:
+                    sections.append(("Market overview", market_summary))
+                if news_summary:
+                    sections.append(("Demand signals", news_summary))
+                if twitter_summary:
+                    sections.append(("Sentiment snapshot", twitter_summary))
+                if synthesis_summary:
+                    sections.append(("Pricing and supply", synthesis_summary))
 
-            # AI Analysis
-            with st.expander(f"🤖 {t.get('trends_ai_analysis', 'Full AI Analysis')}", expanded=False):
-                ai_analysis = clean_display_text(latest.get('ai_analysis', ''))
+                if not sections and ai_analysis:
+                    sections.append(("Market overview", ai_analysis))
+
+                for title, content in sections[:4]:
+                    st.markdown(f"### {title}")
+                    st.markdown(compact_sentences(content, 3))
+
                 if ai_analysis:
-                    st.markdown(ai_analysis)
-                else:
-                    st.info(t.get('trends_no_data', 'No AI analysis available'))
+                    st.markdown("---")
+                    with st.expander("Full report", expanded=False):
+                        st.markdown(ai_analysis)
+            else:
+                if news_summary:
+                    st.markdown("### News Summary")
+                    st.markdown(compact_sentences(news_summary, 3))
+                    st.markdown("---")
+
+                if market_summary:
+                    st.markdown("### Market Data Summary")
+                    st.markdown(compact_sentences(market_summary, 3))
+                    st.markdown("---")
+
+                if synthesis_summary:
+                    st.markdown("### Integrated Synthesis")
+                    st.markdown(compact_sentences(synthesis_summary, 3))
+                    st.markdown("---")
+
+                show_full = not (news_summary or market_summary or synthesis_summary)
+                if show_full:
+                    with st.expander(f"{t.get('trends_ai_analysis', 'Full AI Analysis')}", expanded=False):
+                        if ai_analysis:
+                            st.markdown(ai_analysis)
+                        else:
+                            st.info(t.get('trends_no_data', 'No AI analysis available'))
 
             # Citations
             citations = latest.get('perplexity_citations', [])

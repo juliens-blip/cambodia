@@ -12,3 +12,4 @@ Date: 2026-01-02
 - Added FX reference captions (USD/KHR) and unit conversions (USD/kg, KHR/kg, cents/kg) in Market Trends and Scenario Analysis.
 - Added Cambodia Cashew Snapshot block in Market Trends and compacted Twitter/News/Market/Synthesis sections.
 - Standardized sentiment display with score + tweet count and neutral label without emoji.
+- Final polish: regex cleanup for numeric artifacts, key factor fallbacks, rubber data limitations box + condensed analysis, and summary/full analysis de-dup.

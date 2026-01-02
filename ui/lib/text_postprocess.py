@@ -79,6 +79,25 @@ def postprocess_text(text: str) -> str:
         cleaned,
     )
 
+    # Fix split thousands like "6,50-0/ton" -> "6,500/ton".
+    cleaned = re.sub(
+        r"\b(\d,\d{2})-0/(ton|t|kg)\b",
+        r"\g<1>0/\2",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+
+    # Fix duplicated ranges like "1,8001,8002,200/ton".
+    cleaned = re.sub(
+        r"\b(\d{1,3}(?:,\d{3})+)(?:\1)(\d{1,3}(?:,\d{3})+)/(ton|t|kg)\b",
+        r"\1\2/\3",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+
+    # Remove stray spaces before "/ton".
+    cleaned = re.sub(r"\s+/ton\b", "/ton", cleaned, flags=re.IGNORECASE)
+
     # Normalize numeric ranges with corrupted separators.
     cleaned = re.sub(
         r"(\d[\d,\.]*)\s*(?:\?|\-|~|\u2013|\u2014)\s*\$?\s*(\d[\d,\.]*)",
