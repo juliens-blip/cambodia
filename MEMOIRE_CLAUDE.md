@@ -2864,3 +2864,159 @@ Admin Endpoint (No Rate Limit)
 - Scenario Analysis: Cambodia Metrics cashew harmonisees, captions unifiees, conversions USD/kg + KHR/kg.
 
 ---
+
+## SESSION 2026-01-02 (suite): FINANCIAL LOGIC SCENARIOS
+
+### Contexte
+User absent 3h. Implementation autonome des ameliorations de logique financiere pour la page Scenario Analysis selon workflow APEX.
+
+### Objectifs
+1. Bloc "Baseline Market Trends" avant les tabs scenarios
+2. Probabilites standardisees (20%/60%/20%)
+3. Stress Test pour revenus familles (seuils critiques)
+4. Symetrie rubber (meme structure que cashew)
+5. Vue agregee revenus agricoles Cambodia
+
+### Fichiers Modifies
+
+#### 1. ui/pages/6_Scenario_Analysis.py
+
+**Constantes ajoutees (L107-141):**
+```python
+SCENARIO_PROBABILITIES = {
+    'pessimistic': 0.20,
+    'realistic': 0.60,
+    'optimistic': 0.20
+}
+
+CASHEW_CONSTANTS = {
+    'export_volume_tons': 815_000,
+    'farming_families': 500_000,
+    'base_rcn_range': (1800, 2200),
+    'base_kernel_range': (6200, 6800),
+    'farmgate_factor': 0.70,
+    'stress_threshold_low': 1500,   # USD/t
+    'stress_threshold_high': 2500,  # USD/t
+}
+
+RUBBER_CONSTANTS = {
+    'export_volume_tons': 115_000,
+    'farming_families': 80_000,
+    'default_price': 1825,
+    'farmgate_factor': 0.70,
+    'stress_threshold_low': 1550,
+    'stress_threshold_high': 2100,
+}
+
+AGRI_TOTALS = {
+    'total_families': 580_000,  # 500k cashew + 80k rubber
+    'cashew_share': 0.86,
+    'rubber_share': 0.14,
+}
+```
+
+**Nouvelles fonctions (L988-1241):**
+
+1. `display_baseline_market_trends(commodity, market_data, trends_data)`
+   - Prix courants RCN/Kernels ou Rubber
+   - Indicateur de tendance (Neutral/Bullish/Bearish)
+   - Score de confiance
+   - Probabilites des scenarios
+
+2. `display_stress_test(commodity, fx_rate, scenario_type)`
+   - S'affiche uniquement dans le tab pessimistic
+   - Calcule impact sur revenus a seuil critique
+   - Cashew: seuil $1,500/t (-25% revenus)
+   - Rubber: seuil $1,550/t (-15% revenus)
+   - Impact par famille affiche
+
+3. `display_combined_agri_revenues(cashew_data, rubber_data, fx_rate)`
+   - Vue agregee cashew + rubber
+   - Total exports: ~$1.29B
+   - Total familles: 580,000
+   - Repartition: Cashew 88% / Rubber 12%
+   - Note contexte Cambodia
+
+**Points d'integration:**
+- L1599: `display_baseline_market_trends()` avant les tabs
+- L1627: `display_stress_test()` dans tab pessimistic
+- L1664: `display_combined_agri_revenues()` apres les tabs
+- L1608-1611: Tabs avec badges probabilite [20%], [60%], [20%]
+
+#### 2. ui/i18n/translations.py
+
+24 nouvelles cles ajoutees en anglais et francais:
+- `baseline_market_trends`, `current_prices`, `trend`
+- `scenario_probabilities`, `stress_test`, `critical_scenario`
+- `revenue_drop`, `total_loss`, `families_impacted`
+- `per_family_impact`, `normal_income`, `stress_income`, `loss`
+- `combined_agri_revenues`, `total_exports`, `avg_farm_income`
+- `revenue_distribution`, `by_commodity`, `by_families`
+- `cambodia_context`, `agri_context_note`
+
+### Calculs Financiers Implementes
+
+**Cashew (base):**
+- Volume: 815,000 t
+- Prix moyen: $2,000/t FOB
+- Farmgate: 70% = $1,400/t
+- Revenu total: $1.14B
+- Revenu/famille: ~$2,280/an
+
+**Rubber (base):**
+- Volume: 115,000 t
+- Prix spot: $1,825/t
+- Farmgate: 70% = $1,277/t
+- Revenu total: $147M
+- Revenu/famille: ~$1,838/an
+
+**Stress Test Cashew:**
+- Seuil: RCN < $1,500/t
+- Impact: -25% revenus
+- Perte: ~$285M
+
+**Stress Test Rubber:**
+- Seuil: TSR20 < $1,550/t
+- Impact: -15% revenus
+- Perte: ~$22M
+
+### Task Files
+- tasks/financial-logic-scenarios/00_brief.md
+- tasks/financial-logic-scenarios/01_analysis.md
+- tasks/financial-logic-scenarios/02_plan.md (marque COMPLETED)
+
+### UI Rendu Final
+
+```
+[Page Scenario Analysis]
+|
++-- Header + Commodity Selector
++-- Data Sources Summary
++-- Macro Indicators
++-- Documents Used
++-- Key Tweet
+|
++-- [NEW] Baseline Market Trends
+|   +-- Prix courants (RCN/Kernels ou Rubber)
+|   +-- Indicateur tendance + confiance
+|   +-- Probabilites scenarios (20%/60%/20%)
+|
++-- Tabs Scenarios [avec badges %]
+|   +-- Pessimistic [20%] + Stress Test
+|   +-- Realistic [60%]
+|   +-- Optimistic [20%]
+|
++-- [NEW] Combined Agricultural Revenues
+    +-- Total exports: $1.29B
+    +-- 4 metrics cards
+    +-- Distribution par commodity
+    +-- Contexte Cambodia
+```
+
+---
+
+*Session effectuee par Claude Opus 4.5 le 2026-01-02*
+*Implementation autonome (user absent 3h)*
+*Prochaine etape: Commit et push vers Railway*
+
+---

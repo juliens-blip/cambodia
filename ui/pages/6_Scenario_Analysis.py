@@ -985,6 +985,259 @@ def display_key_tweet(twitter_data):
         st.info("ℹ️ No recent tweets found. Analysis will focus on market data and historical documents.")
 
 
+# ============================================================================
+# FINANCIAL LOGIC FUNCTIONS
+# ============================================================================
+
+def display_baseline_market_trends(commodity: str, market_data: dict, trends_data: dict):
+    """
+    Displays baseline market trends block with current prices, trend indicator,
+    confidence score, and scenario probabilities.
+    """
+    st.markdown("---")
+    st.subheader("📊 " + (t.get('baseline_market_trends', 'Baseline Market Trends') if language == "fr" else "Baseline Market Trends"))
+
+    cols = st.columns([2, 1, 1])
+
+    with cols[0]:
+        if commodity == "cashew":
+            # Current prices display
+            st.markdown("**" + t.get('current_prices', 'Current Prices') + ":**")
+            rcn_range = CASHEW_CONSTANTS['base_rcn_range']
+            kernel_range = CASHEW_CONSTANTS['base_kernel_range']
+            st.markdown(f"""
+            - 🥜 **RCN (Raw)**: ${rcn_range[0]:,} - ${rcn_range[1]:,}/t FOB
+            - 🔶 **Kernels (W320)**: ${kernel_range[0]:,} - ${kernel_range[1]:,}/t FOB
+            """)
+        else:
+            # Rubber prices
+            st.markdown("**" + t.get('current_prices', 'Current Prices') + ":**")
+            rubber_price = RUBBER_CONSTANTS['default_price']
+            st.markdown(f"""
+            - 🌳 **TSR 20 Spot**: ~${rubber_price:,}/t
+            - 📍 **Farmgate**: ~${int(rubber_price * RUBBER_CONSTANTS['farmgate_factor']):,}/t
+            """)
+
+    with cols[1]:
+        # Trend indicator from trends_data
+        trend_label = "Neutral"
+        trend_emoji = "➡️"
+        if trends_data:
+            overall_trend = trends_data.get('overall_trend', {})
+            trend_label = overall_trend.get('label', 'Neutral')
+            if 'bullish' in trend_label.lower() or 'hausse' in trend_label.lower():
+                trend_emoji = "📈"
+            elif 'bearish' in trend_label.lower() or 'baisse' in trend_label.lower():
+                trend_emoji = "📉"
+
+        confidence = trends_data.get('overall_trend', {}).get('confidence', 0.5) if trends_data else 0.5
+        confidence_pct = int(confidence * 100)
+
+        st.metric(
+            label=t.get('trend', 'Trend'),
+            value=f"{trend_emoji} {trend_label}",
+            delta=f"{confidence_pct}% confidence"
+        )
+
+    with cols[2]:
+        # Scenario probabilities badge
+        st.markdown("**" + t.get('scenario_probabilities', 'Scenario Probabilities') + ":**")
+        prob_pessimistic = int(SCENARIO_PROBABILITIES['pessimistic'] * 100)
+        prob_realistic = int(SCENARIO_PROBABILITIES['realistic'] * 100)
+        prob_optimistic = int(SCENARIO_PROBABILITIES['optimistic'] * 100)
+
+        st.markdown(f"""
+        <div style="font-size:0.9em;">
+        🔴 Pessimistic: <b>{prob_pessimistic}%</b><br>
+        🟢 Realistic: <b>{prob_realistic}%</b><br>
+        🔵 Optimistic: <b>{prob_optimistic}%</b>
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def display_stress_test(commodity: str, fx_rate: float, scenario_type: str = 'pessimistic'):
+    """
+    Displays stress test analysis showing revenue impact at critical price thresholds.
+    Called in pessimistic scenario to highlight downside risks.
+    """
+    if scenario_type != 'pessimistic':
+        return  # Only show stress test in pessimistic scenario
+
+    usd_khr = fx_rate or 4014
+
+    st.markdown("---")
+    st.markdown("### ⚠️ " + t.get('stress_test', 'Stress Test - Critical Thresholds'))
+
+    if commodity == "cashew":
+        constants = CASHEW_CONSTANTS
+        threshold = constants['stress_threshold_low']
+        volume = constants['export_volume_tons']
+        families = constants['farming_families']
+        farmgate = constants['farmgate_factor']
+
+        # Base case revenue (mid-range price)
+        base_price = sum(constants['base_rcn_range']) / 2
+        base_revenue = base_price * volume
+        base_farmgate_revenue = base_revenue * farmgate
+
+        # Stress case revenue
+        stress_revenue = threshold * volume
+        stress_farmgate_revenue = stress_revenue * farmgate
+
+        revenue_drop = base_farmgate_revenue - stress_farmgate_revenue
+        drop_pct = (revenue_drop / base_farmgate_revenue) * 100
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.error(f"""
+            **🚨 {t.get('critical_scenario', 'Critical Scenario')}:** RCN < ${threshold:,}/t
+
+            - {t.get('revenue_drop', 'Revenue drop')}: **-{drop_pct:.0f}%**
+            - {t.get('total_loss', 'Total loss')}: **${revenue_drop/1e9:.2f}B USD**
+            - {t.get('families_impacted', 'Families impacted')}: **{families:,}**
+            """)
+
+        with col2:
+            # Per-family impact
+            base_per_family = base_farmgate_revenue / families
+            stress_per_family = stress_farmgate_revenue / families
+            loss_per_family = base_per_family - stress_per_family
+
+            st.warning(f"""
+            **{t.get('per_family_impact', 'Per Family Impact')}:**
+
+            - {t.get('normal_income', 'Normal income')}: ${base_per_family:,.0f}/year
+            - {t.get('stress_income', 'Stress income')}: ${stress_per_family:,.0f}/year
+            - {t.get('loss', 'Loss')}: **${loss_per_family:,.0f}/year** (-{drop_pct:.0f}%)
+            """)
+
+    else:  # rubber
+        constants = RUBBER_CONSTANTS
+        threshold = constants['stress_threshold_low']
+        volume = constants['export_volume_tons']
+        families = constants['farming_families']
+        farmgate = constants['farmgate_factor']
+
+        base_price = constants['default_price']
+        base_revenue = base_price * volume
+        base_farmgate_revenue = base_revenue * farmgate
+
+        stress_revenue = threshold * volume
+        stress_farmgate_revenue = stress_revenue * farmgate
+
+        revenue_drop = base_farmgate_revenue - stress_farmgate_revenue
+        drop_pct = (revenue_drop / base_farmgate_revenue) * 100
+
+        col1, col2 = st.columns(2)
+        with col1:
+            st.error(f"""
+            **🚨 {t.get('critical_scenario', 'Critical Scenario')}:** TSR20 < ${threshold:,}/t
+
+            - {t.get('revenue_drop', 'Revenue drop')}: **-{drop_pct:.0f}%**
+            - {t.get('total_loss', 'Total loss')}: **${revenue_drop/1e6:.0f}M USD**
+            - {t.get('families_impacted', 'Families impacted')}: **{families:,}**
+            """)
+
+        with col2:
+            base_per_family = base_farmgate_revenue / families
+            stress_per_family = stress_farmgate_revenue / families
+            loss_per_family = base_per_family - stress_per_family
+
+            st.warning(f"""
+            **{t.get('per_family_impact', 'Per Family Impact')}:**
+
+            - {t.get('normal_income', 'Normal income')}: ${base_per_family:,.0f}/year
+            - {t.get('stress_income', 'Stress income')}: ${stress_per_family:,.0f}/year
+            - {t.get('loss', 'Loss')}: **${loss_per_family:,.0f}/year** (-{drop_pct:.0f}%)
+            """)
+
+
+def display_combined_agri_revenues(cashew_data: dict, rubber_data: dict, fx_rate: float):
+    """
+    Displays aggregated agricultural revenues view combining cashew and rubber.
+    Shows total exports, total families, and relative shares.
+    """
+    st.markdown("---")
+    st.subheader("🌾 " + t.get('combined_agri_revenues', 'Combined Agricultural Revenues - Cambodia'))
+
+    usd_khr = fx_rate or 4014
+
+    # Calculate cashew revenues (using mid-range)
+    cashew_price = sum(CASHEW_CONSTANTS['base_rcn_range']) / 2
+    cashew_volume = CASHEW_CONSTANTS['export_volume_tons']
+    cashew_revenue = cashew_price * cashew_volume  # Total export
+    cashew_farmgate = cashew_revenue * CASHEW_CONSTANTS['farmgate_factor']
+
+    # Calculate rubber revenues
+    rubber_price = RUBBER_CONSTANTS['default_price']
+    rubber_volume = RUBBER_CONSTANTS['export_volume_tons']
+    rubber_revenue = rubber_price * rubber_volume
+    rubber_farmgate = rubber_revenue * RUBBER_CONSTANTS['farmgate_factor']
+
+    # Totals
+    total_revenue = cashew_revenue + rubber_revenue
+    total_farmgate = cashew_farmgate + rubber_farmgate
+    total_families = AGRI_TOTALS['total_families']
+
+    # Display metrics
+    cols = st.columns(4)
+
+    with cols[0]:
+        st.metric(
+            label=t.get('total_exports', 'Total Exports'),
+            value=f"${total_revenue/1e9:.2f}B",
+            delta=f"{total_families:,} families"
+        )
+
+    with cols[1]:
+        st.metric(
+            label="🥜 Cashew",
+            value=f"${cashew_revenue/1e9:.2f}B",
+            delta=f"{int(AGRI_TOTALS['cashew_share']*100)}% of families"
+        )
+
+    with cols[2]:
+        st.metric(
+            label="🌳 Rubber",
+            value=f"${rubber_revenue/1e6:.0f}M",
+            delta=f"{int(AGRI_TOTALS['rubber_share']*100)}% of families"
+        )
+
+    with cols[3]:
+        avg_income = total_farmgate / total_families
+        st.metric(
+            label=t.get('avg_farm_income', 'Avg Farm Income'),
+            value=f"${avg_income:,.0f}",
+            delta="per family/year"
+        )
+
+    # Distribution breakdown
+    st.markdown("#### " + t.get('revenue_distribution', 'Revenue Distribution'))
+
+    cashew_pct = (cashew_revenue / total_revenue) * 100
+    rubber_pct = (rubber_revenue / total_revenue) * 100
+
+    col1, col2 = st.columns(2)
+
+    with col1:
+        st.markdown(f"""
+        **{t.get('by_commodity', 'By Commodity')}:**
+        - 🥜 Cashew: **{cashew_pct:.1f}%** (${cashew_revenue/1e9:.2f}B)
+        - 🌳 Rubber: **{rubber_pct:.1f}%** (${rubber_revenue/1e6:.0f}M)
+        """)
+
+    with col2:
+        st.markdown(f"""
+        **{t.get('by_families', 'By Farming Families')}:**
+        - 🥜 Cashew: **{CASHEW_CONSTANTS['farming_families']:,}** families ({int(AGRI_TOTALS['cashew_share']*100)}%)
+        - 🌳 Rubber: **{RUBBER_CONSTANTS['farming_families']:,}** families ({int(AGRI_TOTALS['rubber_share']*100)}%)
+        """)
+
+    # Cambodia context note
+    st.info(f"""
+    **🇰🇭 {t.get('cambodia_context', 'Cambodia Context')}:**
+    {t.get('agri_context_note', 'Cambodia is the 2nd largest cashew producer globally (after Vietnam). Agricultural exports represent a significant share of rural livelihoods, with an estimated 580,000 families depending on cashew and rubber cultivation.')}
+    """)
 
 
 
@@ -1340,13 +1593,22 @@ try:
     # Display key tweet
     display_key_tweet(twitter_data)
 
+    # ========================================
+    # BASELINE MARKET TRENDS (before scenarios)
+    # ========================================
+    display_baseline_market_trends(commodity, market_data, None)
+
     st.markdown("---")
 
-    # Three scenario tabs
+    # Three scenario tabs with probabilities
+    prob_pess = int(SCENARIO_PROBABILITIES['pessimistic'] * 100)
+    prob_real = int(SCENARIO_PROBABILITIES['realistic'] * 100)
+    prob_opti = int(SCENARIO_PROBABILITIES['optimistic'] * 100)
+
     tab1, tab2, tab3 = st.tabs([
-        t.get('scenario_pessimistic', '📉 Pessimistic Analysis'),
-        t.get('scenario_realistic', '⚖️ Realistic Analysis'),
-        t.get('scenario_optimistic', '📈 Optimistic Analysis')
+        f"{t.get('scenario_pessimistic', '📉 Pessimistic Analysis')} [{prob_pess}%]",
+        f"{t.get('scenario_realistic', '⚖️ Realistic Analysis')} [{prob_real}%]",
+        f"{t.get('scenario_optimistic', '📈 Optimistic Analysis')} [{prob_opti}%]"
     ])
 
     with tab1:
@@ -1364,6 +1626,9 @@ try:
             )
 
         display_scenario_analysis('pessimistic', pessimistic, '#ff4b4b', commodity, market_data, fx_rate)
+
+        # Stress test for pessimistic scenario
+        display_stress_test(commodity, fx_rate, 'pessimistic')
 
     with tab2:
         st.markdown(f"## {t.get('scenario_realistic', '⚖️ Realistic Analysis')}")
@@ -1396,6 +1661,11 @@ try:
             )
 
         display_scenario_analysis('optimistic', optimistic, '#00cc66', commodity, market_data, fx_rate)
+
+    # ========================================
+    # COMBINED AGRICULTURAL REVENUES (after scenarios)
+    # ========================================
+    display_combined_agri_revenues({}, {}, fx_rate)
 
 except Exception as e:
     st.error(f"{t.get('error', 'Error')}: {str(e)}")
