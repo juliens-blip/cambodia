@@ -16,6 +16,9 @@ logger = logging.getLogger(__name__)
 class MarketTrendsService:
     """Service for analyzing and storing market trends from Twitter/X and stock data."""
 
+    CASHEW_RCN_RANGE = (1800, 2200)
+    CASHEW_KERNEL_W320_RANGE = (6200, 6800)
+
     def __init__(
         self,
         supabase: SupabaseService,
@@ -113,14 +116,14 @@ class MarketTrendsService:
             'twitter_volume': parsed.get('twitter_volume', 0),
             'twitter_summary': parsed.get('twitter_summary', ''),
             'top_tweets': parsed.get('top_tweets', []),
-            'tweet_count': len(parsed.get('top_tweets', [])),
+            'tweet_count': parsed.get('tweet_count_30d', parsed.get('twitter_volume', 0)),
 
             # News articles data (new)
             'news_articles': parsed.get('news_articles', []),
             'news_summary': parsed.get('news_summary', ''),
 
             # Stock data
-            'stock_price_usd': parsed.get('stock_price'),
+            'stock_price_usd': parsed.get('stock_price_usd') or parsed.get('stock_price'),
             'stock_change_pct': parsed.get('stock_change_pct'),
             'stock_volume': parsed.get('stock_volume'),
             'market_summary': parsed.get('market_summary', ''),
@@ -183,24 +186,12 @@ class MarketTrendsService:
         """
         parsed = {}
 
-        # Extract Twitter sentiment
-        if 'bullish' in response_text.lower():
-            if 'strong' in response_text.lower() and 'bullish' in response_text.lower():
-                parsed['twitter_sentiment'] = 'bullish'
-                parsed['overall_trend'] = 'strong_bullish'
-            else:
-                parsed['twitter_sentiment'] = 'bullish'
-                parsed['overall_trend'] = 'bullish'
-        elif 'bearish' in response_text.lower():
-            if 'strong' in response_text.lower() and 'bearish' in response_text.lower():
-                parsed['twitter_sentiment'] = 'bearish'
-                parsed['overall_trend'] = 'strong_bearish'
-            else:
-                parsed['twitter_sentiment'] = 'bearish'
-                parsed['overall_trend'] = 'bearish'
-        else:
-            parsed['twitter_sentiment'] = 'neutral'
-            parsed['overall_trend'] = 'neutral'
+        # Extract sentiment/trend from explicit labels when possible
+        analysis_trend = self._extract_analysis_trend(response_text)
+        twitter_sentiment = self._extract_twitter_sentiment(response_text)
+
+        parsed['twitter_sentiment'] = twitter_sentiment
+        parsed['overall_trend'] = analysis_trend
 
         # Extract tweet volume (look for numbers + "tweets")
         tweet_match = re.search(r'(\d+)\s+tweets?', response_text, re.IGNORECASE)
@@ -209,11 +200,19 @@ class MarketTrendsService:
         else:
             parsed['twitter_volume'] = 0
 
-        # Extract stock price change percentage
-        pct_matches = re.findall(r'([+-]?\d+\.?\d*)\s*%', response_text)
-        if pct_matches:
-            # Take the most prominent percentage
-            parsed['stock_change_pct'] = float(pct_matches[0].replace('+', ''))
+        # Extract price change percentages (24h/7d/30d if present)
+        price_changes = self._extract_price_changes(response_text)
+        parsed.update(price_changes)
+        if price_changes.get("price_change_24h") is not None:
+            parsed['stock_change_pct'] = price_changes["price_change_24h"]
+        elif price_changes.get("price_change_7d") is not None:
+            parsed['stock_change_pct'] = price_changes["price_change_7d"]
+        elif price_changes.get("price_change_30d") is not None:
+            parsed['stock_change_pct'] = price_changes["price_change_30d"]
+        else:
+            pct_matches = re.findall(r'([+-]?\d+\.?\d*)\s*%', response_text)
+            if pct_matches:
+                parsed['stock_change_pct'] = float(pct_matches[0].replace('+', ''))
 
         # Extract price (look for USD per ton)
         price_match = re.search(r'\$?(\d+(?:,\d{3})*)\s*(?:USD)?\s*per\s*ton', response_text, re.IGNORECASE)
@@ -309,6 +308,34 @@ class MarketTrendsService:
                     })
 
         parsed['top_tweets'] = tweets[:5]  # Max 5 tweets
+        if parsed.get('twitter_volume', 0) == 0 and tweets:
+            parsed['twitter_volume'] = len(tweets)
+        parsed['tweet_count_30d'] = parsed.get('twitter_volume', 0)
+
+        sentiment_score = self._sentiment_score_from_label(parsed.get('twitter_sentiment', 'neutral'))
+        parsed['twitter_sentiment_score'] = sentiment_score
+        parsed['twitter_sentiment'] = self.resolve_sentiment_label(
+            parsed.get('tweet_count_30d', 0),
+            sentiment_score
+        )
+
+        if commodity == "cashew":
+            parsed['overall_trend'] = self.resolve_trend_label_cashew(
+                price_change_24h=parsed.get('price_change_24h'),
+                price_change_7d=parsed.get('price_change_7d'),
+                price_change_30d=parsed.get('price_change_30d'),
+                analysis_trend=analysis_trend,
+                confidence_score=parsed.get('confidence_score', 0.5)
+            )
+        else:
+            parsed['overall_trend'] = self.resolve_trend_label(
+                commodity=commodity,
+                price_change_24h=parsed.get('price_change_24h'),
+                price_change_7d=parsed.get('price_change_7d'),
+                price_change_30d=parsed.get('price_change_30d'),
+                analysis_trend=analysis_trend,
+                confidence_score=parsed.get('confidence_score', 0.5)
+            )
         logger.info(f"Parsed {len(parsed['top_tweets'])} tweets from response")
 
         # Extract news articles (new)
@@ -355,6 +382,158 @@ class MarketTrendsService:
             parsed = self._validate_rubber_prices(parsed)
 
         return parsed
+
+    def _extract_analysis_trend(self, response_text: str) -> str:
+        patterns = [
+            r'overall\s+market\s+trend\s*:\s*(strong[_\s]?bullish|bullish|neutral|bearish|strong[_\s]?bearish|slightly[_\s]?bullish|slightly[_\s]?bearish)',
+            r'overall\s+trend\s*:\s*(strong[_\s]?bullish|bullish|neutral|bearish|strong[_\s]?bearish|slightly[_\s]?bullish|slightly[_\s]?bearish)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, response_text, re.IGNORECASE)
+            if match:
+                label = match.group(1).lower().replace(" ", "_")
+                if "bearish" in label:
+                    return "bearish"
+                if "bullish" in label:
+                    return "bullish"
+                return "neutral"
+
+        text_lower = response_text.lower()
+        if "bearish" in text_lower and "bullish" in text_lower:
+            return "neutral"
+        if "bearish" in text_lower:
+            return "bearish"
+        if "bullish" in text_lower:
+            return "bullish"
+        return "neutral"
+
+    def _extract_twitter_sentiment(self, response_text: str) -> str:
+        patterns = [
+            r'overall\s+twitter\s+sentiment\s*:\s*(bullish|neutral|bearish)',
+            r'twitter\s+sentiment\s*:\s*(bullish|neutral|bearish)',
+        ]
+        for pattern in patterns:
+            match = re.search(pattern, response_text, re.IGNORECASE)
+            if match:
+                return match.group(1).lower()
+
+        text_lower = response_text.lower()
+        if "bearish" in text_lower and "bullish" in text_lower:
+            return "neutral"
+        if "bearish" in text_lower:
+            return "bearish"
+        if "bullish" in text_lower:
+            return "bullish"
+        return "neutral"
+
+    def _extract_price_changes(self, response_text: str) -> Dict[str, Optional[float]]:
+        patterns = {
+            "price_change_24h": [
+                r'([+-]?\d+\.?\d*)\s*%[^\\n]*\b(?:24\s*h|24h|24\s*hours|1\s*day)\b',
+                r'([+-]?\d+\.?\d*)\s*%[^\\n]*\b(?:24-hour|daily)\b'
+            ],
+            "price_change_7d": [
+                r'([+-]?\d+\.?\d*)\s*%[^\\n]*\b(?:7\s*days|7d|1\s*week)\b'
+            ],
+            "price_change_30d": [
+                r'([+-]?\d+\.?\d*)\s*%[^\\n]*\b(?:30\s*days|30d|1\s*month|monthly)\b'
+            ]
+        }
+
+        changes: Dict[str, Optional[float]] = {
+            "price_change_24h": None,
+            "price_change_7d": None,
+            "price_change_30d": None
+        }
+
+        for key, regex_list in patterns.items():
+            for pattern in regex_list:
+                match = re.search(pattern, response_text, re.IGNORECASE)
+                if match:
+                    try:
+                        changes[key] = float(match.group(1).replace("+", ""))
+                        break
+                    except ValueError:
+                        continue
+
+        return changes
+
+    def _sentiment_score_from_label(self, label: str) -> float:
+        label = (label or "neutral").lower()
+        if label == "bullish":
+            return 0.4
+        if label == "bearish":
+            return -0.4
+        return 0.0
+
+    def resolve_sentiment_label(self, tweet_count_30d: int, sentiment_score: float) -> str:
+        if tweet_count_30d < 10:
+            return "unknown"
+        if sentiment_score > 0.2:
+            return "bullish"
+        if sentiment_score < -0.2:
+            return "bearish"
+        return "neutral"
+
+    def resolve_trend_label_cashew(
+        self,
+        price_change_24h: Optional[float],
+        price_change_7d: Optional[float],
+        price_change_30d: Optional[float],
+        analysis_trend: str,
+        confidence_score: float
+    ) -> str:
+        return self.resolve_trend_label(
+            commodity="cashew",
+            price_change_24h=price_change_24h,
+            price_change_7d=price_change_7d,
+            price_change_30d=price_change_30d,
+            analysis_trend=analysis_trend,
+            confidence_score=confidence_score
+        )
+
+    def resolve_trend_label(
+        self,
+        commodity: str,
+        price_change_24h: Optional[float],
+        price_change_7d: Optional[float],
+        price_change_30d: Optional[float],
+        analysis_trend: str,
+        confidence_score: float
+    ) -> str:
+        change = price_change_30d
+        if change is None:
+            change = price_change_7d
+        if change is None:
+            change = price_change_24h
+        if change is None:
+            change = 0.0
+
+        analysis_trend = (analysis_trend or "neutral").lower()
+
+        if analysis_trend == "bearish" or change < -5:
+            if change <= -10 and analysis_trend == "bearish" and confidence_score >= 0.7:
+                return "strong_bearish"
+            if change < -5:
+                return "slightly_bearish"
+            return "bearish"
+
+        if analysis_trend == "neutral" and abs(change) <= 5:
+            return "neutral"
+
+        if analysis_trend in ("neutral", "bullish") and 5 < change <= 10:
+            return "slightly_bullish"
+
+        if analysis_trend == "bullish" and change > 10 and confidence_score >= 0.7:
+            return "strong_bullish"
+
+        if analysis_trend == "bullish":
+            return "bullish"
+
+        if analysis_trend == "neutral" and change > 10:
+            return "slightly_bullish"
+
+        return "neutral"
 
     def _validate_rubber_prices(self, parsed: Dict) -> Dict:
         """
@@ -403,8 +582,9 @@ class MarketTrendsService:
                 )
                 parsed['price_context'] = 'Above typical range - exceptional market surge'
 
-            # Calculate farmgate estimate (assuming ~70% of FOB for farmers)
-            farmgate_usd_kg = (price_usd_ton / 1000) * 0.70
+            # Calculate farmgate estimate (configurable factor)
+            farmgate_factor = getattr(settings, "rubber_farmgate_factor", 0.70)
+            farmgate_usd_kg = (price_usd_ton / 1000) * farmgate_factor
             farmgate_khr_kg = farmgate_usd_kg * 4050  # USD/KHR rate
 
             parsed['farmgate_estimate_usd_kg'] = round(farmgate_usd_kg, 2)
@@ -469,7 +649,7 @@ Cambodia Context:
         Validate price ranges for Cambodia cashew market.
 
         Adds price_type, price_context, and price_clarification fields.
-        Detects if price is RCN ($1,500-2,500) or Kernels ($6,000-7,000).
+        Detects if price is RCN ($1,800-2,200) or Kernels ($6,200-6,800).
 
         Args:
             parsed: Parsed data dict from _parse_analysis
@@ -483,23 +663,25 @@ Cambodia Context:
 
         warnings = []
         price = parsed.get('stock_price_usd') or parsed.get('stock_price')
+        rcn_low, rcn_high = self.CASHEW_RCN_RANGE
+        kernel_low, kernel_high = self.CASHEW_KERNEL_W320_RANGE
 
         if price:
             # Detect if RCN or Kernels based on price range
-            if 1000 <= price <= 3000:
+            if rcn_low <= price <= rcn_high:
                 parsed['price_type'] = 'RCN'
-                parsed['price_context'] = 'Raw Cashew Nuts (FOB Cambodia)'
+                parsed['price_context'] = 'RCN FOB Cambodia'
                 parsed['price_segment'] = 'raw'
-            elif 3001 <= price <= 5000:
+            elif rcn_high < price <= rcn_high + 400:
                 parsed['price_type'] = 'RCN'
-                parsed['price_context'] = 'Raw Cashew Nuts (High quality or premium market)'
+                parsed['price_context'] = 'RCN FOB Cambodia (premium)'
                 parsed['price_segment'] = 'raw_premium'
-                warnings.append(f"Price ${price:,.0f}/t is in upper RCN range - may indicate premium quality or market surge")
-            elif 5001 <= price <= 9000:
+                warnings.append(f"Price ${price:,.0f}/t above typical RCN range - premium or tight supply")
+            elif kernel_low <= price <= kernel_high:
                 parsed['price_type'] = 'Kernels'
-                parsed['price_context'] = 'Processed Kernels (FOB Vietnam)'
+                parsed['price_context'] = 'Kernels W320 FOB Vietnam'
                 parsed['price_segment'] = 'kernels'
-            elif price > 9000:
+            elif price > kernel_high:
                 parsed['price_type'] = 'Kernels'
                 parsed['price_context'] = 'Premium Kernels W180/W240 (FOB Vietnam)'
                 parsed['price_segment'] = 'kernels_premium'
@@ -511,17 +693,17 @@ Cambodia Context:
                 warnings.append(f"Price ${price:,.0f}/t outside expected ranges")
 
         # Add clarification footer for UI display
-        parsed['price_clarification'] = """PRICE REFERENCE GUIDE (Cambodia Cashew)
+        parsed['price_clarification'] = f"""PRICE REFERENCE GUIDE (Cambodia Cashew)
 
 Product Types:
-- RCN (Raw Cashew Nuts): Unprocessed, exported to Vietnam - $1,500-2,500/ton
-- Kernels: Processed cashew nuts - $6,000-7,000/ton (W320 grade)
+- RCN (Raw Cashew Nuts): Unprocessed, exported to Vietnam - ${rcn_low:,.0f}-{rcn_high:,.0f}/ton
+- Kernels: Processed cashew nuts - ${kernel_low:,.0f}-{kernel_high:,.0f}/ton (W320 grade)
 
 Quality Grades (Kernels):
-- W180 (Premium): Largest kernels, highest price ($7,000-9,000+)
-- W240 (High): Large kernels ($6,500-7,500)
-- W320 (Standard): Most traded grade ($6,000-7,000)
-- W450 (Economy): Smaller kernels, lower price ($5,500-6,500)
+- W180 (Premium): Largest kernels, highest price ($6,800-7,800+)
+- W240 (High): Large kernels ($6,500-7,200)
+- W320 (Standard): Most traded grade ($6,200-6,800)
+- W450 (Economy): Smaller kernels, lower price ($5,800-6,400)
 
 Cambodia Context:
 - 2nd largest RCN producer globally

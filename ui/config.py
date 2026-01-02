@@ -18,6 +18,9 @@ TRENDS_URL = f"{API_BASE_URL}/api/v1/trends"
 TRENDS_SUMMARY_URL = f"{API_BASE_URL}/api/v1/trends/summary"
 ALERTS_URL = f"{API_BASE_URL}/api/v1/trends/alerts"
 
+# Commodity parameters
+RUBBER_FARMGATE_FACTOR = float(os.environ.get("RUBBER_FARMGATE_FACTOR", "0.70"))
+
 # Admin endpoints for document indexation
 ADMIN_INDEX_URL = f"{API_BASE_URL}/api/v1/admin/index-documents"
 ADMIN_STATUS_URL = f"{API_BASE_URL}/api/v1/admin/indexation-status"

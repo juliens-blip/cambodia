@@ -270,24 +270,29 @@ try:
                 # Trend indicator
                 trend = data.get('overall_trend', 'neutral')
                 trend_emoji = {
-                    'strong_bullish': '📈🔥',
-                    'bullish': '📈',
-                    'neutral': '➡️',
-                    'bearish': '📉',
-                    'strong_bearish': '📉💥'
-                }.get(trend, '➡️')
+                    'strong_bullish': '????',
+                    'bullish': '??',
+                    'slightly_bullish': '??',
+                    'neutral': '??',
+                    'slightly_bearish': '??',
+                    'bearish': '??',
+                    'strong_bearish': '????'
+                }.get(trend, '??')
 
                 st.markdown(f"Trend: {trend_emoji} **{trend.replace('_', ' ').title()}**")
 
                 # Twitter sentiment
                 sentiment = data.get('twitter_sentiment', 'neutral')
-                sentiment_emoji = {
-                    'bullish': '😊',
-                    'bearish': '😟',
-                    'neutral': '😐'
-                }.get(sentiment, '😐')
+                if sentiment == 'unknown':
+                    st.markdown("Sentiment: Not enough data")
+                else:
+                    sentiment_emoji = {
+                        'bullish': '😊',
+                        'bearish': '😟',
+                        'neutral': '😐'
+                    }.get(sentiment, '😐')
 
-                st.markdown(f"Sentiment: {sentiment_emoji} {sentiment.capitalize()}")
+                    st.markdown(f"Sentiment: {sentiment_emoji} {sentiment.capitalize()}")
 
                 # Price change
                 price_change = data.get('stock_change_pct')

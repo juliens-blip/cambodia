@@ -52,7 +52,7 @@ async def get_latest_trend(commodity: str):
     - **commodity**: 'cashew' or 'rubber'
 
     Returns the most recent trend analysis including:
-    - Twitter/X sentiment (last 48h)
+    - Twitter/X sentiment (last 30 days)
     - Stock market data
     - Overall trend direction
     - AI-generated insights
@@ -119,7 +119,7 @@ async def analyze_trends(
     - **force_refresh**: Force new analysis even if today's exists
 
     This endpoint:
-    1. Searches Twitter/X for recent tweets (48h)
+    1. Searches Twitter/X for recent tweets (last 30 days)
     2. Fetches stock market data
     3. Generates AI analysis via Perplexity
     4. Stores results in database
@@ -390,9 +390,15 @@ async def generate_scenario_analysis(
 - FX exposure: USD/KHR fluctuations affect farmer revenues
 
 **Price Reference Guide:**
-- RCN FOB Cambodia: $1,500-2,500/ton (unprocessed)
-- Kernels FOB Vietnam: $6,000-7,000/ton (W320 grade)
+- RCN FOB Cambodia: $1,800-2,200/ton (unprocessed)
+- Kernels FOB Vietnam: $6,200-6,800/ton (W320 grade)
 - Farmgate Cambodia: 3,000-5,000 KHR/kg
+
+**Scenario Calibration (Cashew):**
+- Use base ranges above as reference
+- Pessimistic: ~-15% from base range
+- Realistic: base range
+- Optimistic: ~+15% from base range
 
 ===
 
@@ -497,7 +503,7 @@ Focus on:
 3. **Probable Scenarios**: What's most likely for Cambodian exports in 3-6 months
 4. **Farmer Outlook**: Expected farmgate price range in KHR/kg (realistic estimate)
 
-Be objective and data-driven. Distinguish RCN ($1,500-2,500) vs Kernel ($6,000-7,000) prices. Keep response under 350 words.""",
+Be objective and data-driven. Distinguish RCN ($1,800-2,200) vs Kernel ($6,200-6,800) prices. Keep response under 350 words.""",
 
             'optimistic': f"""As an opportunity-focused market analyst, provide an OPTIMISTIC (bullish) analysis for {commodity} market.
 

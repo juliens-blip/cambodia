@@ -94,6 +94,19 @@ TRANSLATIONS = {
         "macro_volume": "Volume",
         "macro_value": "Value",
 
+        # Market Trends
+        "trends_overall_trend": "Overall Trend",
+        "trends_twitter_sentiment": "Twitter Sentiment",
+        "trends_tweet_volume": "Tweet Volume (30d)",
+        "trends_sentiment_not_enough": "Not enough data",
+        "trend_strong_bullish": "Strong Bullish",
+        "trend_bullish": "Bullish",
+        "trend_slightly_bullish": "Slightly Bullish",
+        "trend_neutral": "Neutral",
+        "trend_slightly_bearish": "Slightly Bearish",
+        "trend_bearish": "Bearish",
+        "trend_strong_bearish": "Strong Bearish",
+
         # Common
         "loading": "Loading...",
         "error": "Error",
@@ -304,7 +317,8 @@ TRANSLATIONS = {
         "trends_confidence": "Confiance",
         "trends_twitter_analysis": "Analyse Twitter/X",
         "trends_stock_market": "Marché Boursier",
-        "trends_tweet_volume": "Volume Tweets (48h)",
+        "trends_tweet_volume": "Volume Tweets (30j)",
+        "trends_sentiment_not_enough": "Données insuffisantes",
         "trends_summary": "Résumé",
         "trends_top_tweets": "Top Tweets",
         "trends_price": "Prix",
@@ -333,7 +347,9 @@ TRANSLATIONS = {
         # Trend values
         "trend_strong_bullish": "Très Haussier",
         "trend_bullish": "Haussier",
+        "trend_slightly_bullish": "Légèrement Haussier",
         "trend_neutral": "Neutre",
+        "trend_slightly_bearish": "Légèrement Baissier",
         "trend_bearish": "Baissier",
         "trend_strong_bearish": "Très Baissier",
 

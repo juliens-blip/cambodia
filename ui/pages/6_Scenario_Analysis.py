@@ -12,7 +12,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
-from ui.config import API_BASE_URL
+from ui.config import API_BASE_URL, RUBBER_FARMGATE_FACTOR
 from ui.lib.csx_helper import save_csx_index, get_latest_csx_index
 
 # Page config
@@ -935,6 +935,110 @@ def display_key_tweet(twitter_data):
 
 
 
+
+
+def display_cambodia_metrics_cashew(scenario_type: str):
+    # Base ranges (USD/ton)
+    base_rcn_range = (1800, 2200)
+    base_kernel_range = (6200, 6800)
+
+    # Scenario multipliers
+    price_multipliers = {
+        'pessimistic': 0.85,
+        'realistic': 1.0,
+        'optimistic': 1.15
+    }
+    multiplier = price_multipliers.get(scenario_type, 1.0)
+
+    rcn_range = (base_rcn_range[0] * multiplier, base_rcn_range[1] * multiplier)
+    farmgate_factor = 0.70
+    usd_khr = 4050
+    farmgate_range_khr = (
+        (rcn_range[0] / 1000) * farmgate_factor * usd_khr,
+        (rcn_range[1] / 1000) * farmgate_factor * usd_khr
+    )
+
+    export_volume_tons = 815_000
+    export_revenue_range = (
+        rcn_range[0] * export_volume_tons,
+        rcn_range[1] * export_volume_tons
+    )
+
+    families = 500_000
+    if language == "fr":
+        status_map = {
+            'pessimistic': "revenus en baisse",
+            'realistic': "revenus stables",
+            'optimistic': "revenus en hausse"
+        }
+    else:
+        status_map = {
+            'pessimistic': "income down",
+            'realistic': "income stable",
+            'optimistic': "income up"
+        }
+    labels = {
+        'rcn_range': "RCN FOB Range",
+        'farmgate_range': "Farmgate Range",
+        'export_revenue': "Export Revenue",
+        'families': "Families Affected",
+        'rcn_caption': "RCN FOB Cambodia",
+        'farmgate_caption': f"? {farmgate_factor:.0%} of FOB",
+        'export_caption': f"{export_volume_tons:,} tons",
+        'kernel_caption': "Kernel W320 reference range"
+    }
+    if language == "fr":
+        labels = {
+            'rcn_range': "Fourchette RCN FOB",
+            'farmgate_range': "Fourchette farmgate",
+            'export_revenue': "Revenu export",
+            'families': "Familles affect?es",
+            'rcn_caption': "RCN FOB Cambodge",
+            'farmgate_caption': f"? {farmgate_factor:.0%} du FOB",
+            'export_caption': f"{export_volume_tons:,} tonnes",
+            'kernel_caption': "R?f?rence W320 kernels"
+        }
+
+
+    st.markdown("---")
+    st.markdown(f"### ???? {t.get('cambodia_impact', 'Cambodia Impact')}")
+
+    col1, col2, col3, col4 = st.columns(4)
+
+    with col1:
+        st.metric(
+            labels["rcn_range"],
+            f"${rcn_range[0]:,.0f}?${rcn_range[1]:,.0f}/t"
+        )
+        st.caption(labels["rcn_caption"])
+
+    with col2:
+        st.metric(
+            labels["farmgate_range"],
+            f"{farmgate_range_khr[0]:,.0f}?{farmgate_range_khr[1]:,.0f} KHR/kg"
+        )
+        st.caption(labels["farmgate_caption"])
+
+    with col3:
+        st.metric(
+            labels["export_revenue"],
+            f"${export_revenue_range[0] / 1_000_000_000:.2f}?${export_revenue_range[1] / 1_000_000_000:.2f}B"
+        )
+        st.caption(labels["export_caption"])
+
+    with col4:
+        st.metric(
+            labels["families"],
+            f"{families:,}"
+        )
+        st.caption(status_map.get(scenario_type, "income stable"))
+
+    st.caption(
+        f"{labels['kernel_caption']}: ${base_kernel_range[0]:,.0f}?${base_kernel_range[1]:,.0f}/t "
+        f"(FOB Vietnam)"
+    )
+
+
 def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
     """Display Cambodia-specific impact for rubber scenarios."""
     import plotly.graph_objects as go
@@ -966,8 +1070,8 @@ def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
     # Calculate export revenue
     export_revenue_usd = EXPORT_VOLUME_TONS * scenario_price
 
-    # Calculate farmgate price (70% of FOB)
-    farmgate_usd_kg = (scenario_price / 1000) * 0.70
+    # Calculate farmgate price (configurable share of FOB)
+    farmgate_usd_kg = (scenario_price / 1000) * RUBBER_FARMGATE_FACTOR
     farmgate_khr_kg = farmgate_usd_kg * 4050  # Current exchange rate
 
     # Display Cambodia Impact section
@@ -980,7 +1084,7 @@ def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
     with col1:
         delta_pct = (price_multipliers.get(scenario_type, 1.0) - 1.0) * 100
         st.metric(
-            "Export Revenue",
+            labels["export_revenue"],
             f"${export_revenue_usd / 1_000_000:.1f}M",
             delta=f"{delta_pct:+.0f}%"
         )
@@ -996,7 +1100,7 @@ def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
 
     with col3:
         st.metric(
-            "Families Affected",
+            labels["families"],
             f"{FARMING_FAMILIES:,}",
             delta=None
         )
@@ -1057,7 +1161,10 @@ def display_cambodia_impact_rubber(market_data: dict, scenario_type: str):
         }
     )
 
-    st.caption(f"⚠️ Based on scenario price ${scenario_price:,.0f}/ton (70% FOB)")
+    st.caption(
+        f"⚠️ Based on scenario price ${scenario_price:,.0f}/ton "
+        f"({RUBBER_FARMGATE_FACTOR:.0%} FOB)"
+    )
 
 
 def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: str, commodity: str, market_data: dict):
@@ -1088,9 +1195,11 @@ def display_scenario_analysis(scenario_type: str, analysis_data: dict, color: st
                     # Fallback for unknown type
                     st.markdown(f"**[{i}]** {str(citation)[:300]}...")
 
-    # Display Cambodia impact section for rubber
+    # Display Cambodia metrics section
     if commodity == 'rubber':
         display_cambodia_impact_rubber(market_data, scenario_type)
+    elif commodity == 'cashew':
+        display_cambodia_metrics_cashew(scenario_type)
 
 
 # Sidebar refresh for macro indicators (after function definitions)

@@ -41,8 +41,8 @@ CRITICAL: Always distinguish product types and price segments
 
 **Price Segmentation Requirements:**
 1. RCN (Raw Cashew Nuts) vs Kernels (processed)
-   - RCN FOB Cambodia: Typical range $1,500-2,500/ton
-   - Kernels FOB Vietnam: Typical range $6,000-7,000/ton (W320 grade)
+   - RCN FOB Cambodia: Typical range $1,800-2,200/ton
+   - Kernels FOB Vietnam: Typical range $6,200-6,800/ton (W320 grade)
 
 2. FOB vs Farmgate prices
    - FOB = Export price (Sihanoukville port)
@@ -447,7 +447,7 @@ Answer:"""
         Analyze market trends from Twitter/X and stock market data.
 
         This method:
-        1. Searches Twitter/X for recent tweets (last 48h) about the commodity
+        1. Searches Twitter/X for recent tweets (last 30 days) about the commodity
         2. Analyzes stock market data (prices, volumes, trends)
         3. Combines both sources to generate overall market sentiment
         4. Provides actionable insights for traders/farmers
@@ -641,8 +641,8 @@ Use these indicators as supporting context for Cambodia market conditions.
 - FX exposure: USD/KHR fluctuations affect farmer revenues
 
 **Price Reference Guide:**
-- RCN FOB Cambodia: $1,500-2,500/ton (unprocessed)
-- Kernels FOB Vietnam: $6,000-7,000/ton (W320 grade)
+- RCN FOB Cambodia: $1,800-2,200/ton (unprocessed)
+- Kernels FOB Vietnam: $6,200-6,800/ton (W320 grade)
 - Farmgate Cambodia: 3,000-5,000 KHR/kg
 
 ===
@@ -668,8 +668,8 @@ Use these indicators as supporting context for Cambodia market conditions.
 
    PRICE CLARITY (CRITICAL FOR CASHEW):
    - ALWAYS distinguish RCN (Raw Cashew Nuts) from Kernels (processed)
-   - RCN FOB Cambodia: $1,500-2,500/ton
-   - Kernels FOB Vietnam: $6,000-7,000/ton (W320)
+   - RCN FOB Cambodia: $1,800-2,200/ton
+   - Kernels FOB Vietnam: $6,200-6,800/ton (W320)
    - If only one price is found, specify which product type
 
    Overall Market Trend: Choose ONE from:

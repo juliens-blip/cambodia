@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     weekly_job_hour: int = 6
     weekly_job_minute: int = 0
 
+    # Commodity parameters
+    rubber_farmgate_factor: float = 0.70
+
     # Redis (optional)
     redis_url: Optional[str] = None
 

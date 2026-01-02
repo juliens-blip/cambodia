@@ -14,7 +14,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspa
 
 from ui.i18n.translations import get_all_translations
 from ui.components import render_language_selector
-from ui.config import TRENDS_URL
+from ui.config import TRENDS_URL, RUBBER_FARMGATE_FACTOR
 from ui.lib.csx_helper import save_csx_index, get_latest_csx_index
 
 # Page config
@@ -381,6 +381,8 @@ def display_macro_indicators(exchange_rate, csx_summary_stats, csx_index):
                 f"{t.get('macro_volume', 'Volume')}: {volume_text}"
             )
 
+
+
     with col3:
         index_value = None
         change_pct = None
@@ -471,22 +473,33 @@ try:
             col1, col2, col3, col4 = st.columns(4)
 
             with col1:
-                # Phase 1.4: Validate trend label against AI analysis content
                 raw_trend = latest.get('overall_trend', 'neutral')
                 ai_analysis = normalize_display_text(latest.get('ai_analysis', ''))
                 price_change = latest.get('stock_change_pct')
 
-                # Validate coherence between label and content
-                trend = validate_trend_label(ai_analysis, raw_trend, price_change)
-                label_was_corrected = trend != raw_trend
+                known_trends = {
+                    'strong_bullish',
+                    'bullish',
+                    'slightly_bullish',
+                    'neutral',
+                    'slightly_bearish',
+                    'bearish',
+                    'strong_bearish'
+                }
+
+                trend = raw_trend if raw_trend in known_trends else validate_trend_label(
+                    ai_analysis, raw_trend, price_change
+                )
 
                 trend_emoji = {
-                    'strong_bullish': '📈🔥',
-                    'bullish': '📈',
-                    'neutral': '➡️',
-                    'bearish': '📉',
-                    'strong_bearish': '📉💥'
-                }.get(trend, '➡️')
+                    'strong_bullish': '????',
+                    'bullish': '??',
+                    'slightly_bullish': '??',
+                    'neutral': '??',
+                    'slightly_bearish': '??',
+                    'bearish': '??',
+                    'strong_bearish': '????'
+                }.get(trend, '??')
 
                 trend_label = t.get(f'trend_{trend}', trend.replace('_', ' ').title())
 
@@ -496,45 +509,33 @@ try:
                     delta=None
                 )
 
-                # Phase improvement: Show context if label corrected or discrepancy
-                if label_was_corrected:
-                    st.caption(f"Ajuste: {raw_trend} -> {trend}")
-                elif price_change and abs(price_change) > 5 and 'neutral' in trend.lower():
-                    st.caption(f"Court terme: {price_change:+.1f}% | Prevision: stable")
-
             with col2:
-                # Fix: Show "Non calculé" if no tweets found (tweet_count = 0)
-                tweet_count = latest.get('tweet_count', 0)
-                twitter_volume = latest.get('twitter_volume', 0)
+                tweet_count = latest.get('tweet_count', 0) or 0
+                twitter_volume = latest.get('twitter_volume', 0) or 0
+                tweet_count_30d = twitter_volume if twitter_volume else tweet_count
+                sentiment_label = latest.get('twitter_sentiment', 'neutral')
 
-                # Use tweet_count if available, fallback to twitter_volume
-                actual_count = tweet_count if tweet_count is not None else twitter_volume
-
-                if actual_count == 0:
-                    # No tweets found - sentiment not calculated
+                if sentiment_label == 'unknown' or tweet_count_30d < 10:
                     st.metric(
                         t.get('trends_twitter_sentiment', 'Twitter Sentiment'),
-                        "❓ Non calculé",
+                        t.get('trends_sentiment_not_enough', 'Not enough data'),
                         delta=None,
-                        help="Aucun tweet trouvé - sentiment non disponible"
+                        help=f"{tweet_count_30d} tweets in 30 days"
                     )
                 else:
-                    sentiment = latest.get('twitter_sentiment', 'neutral')
                     sentiment_emoji = {
-                        'bullish': '😊',
-                        'bearish': '😟',
-                        'neutral': '😐'
-                    }.get(sentiment, '😐')
+                        'bullish': '??',
+                        'bearish': '??',
+                        'neutral': '??'
+                    }.get(sentiment_label, '??')
 
                     st.metric(
                         t.get('trends_twitter_sentiment', 'Twitter Sentiment'),
-                        f"{sentiment_emoji} {sentiment.capitalize()}",
+                        f"{sentiment_emoji} {sentiment_label.capitalize()}",
                         delta=None,
-                        help=f"Basé sur {actual_count} tweets analysés"
+                        help=f"{tweet_count_30d} tweets in 30 days"
                     )
-                    # Phase 3.1: Explicit tweet volume badge
-                    volume_level = "faible" if actual_count < 5 else "moyen" if actual_count < 15 else "eleve"
-                    st.caption(f"{actual_count} tweets ({volume_level})")
+
 
             with col3:
                 price_change = latest.get('stock_change_pct')
@@ -574,8 +575,8 @@ try:
             with col1:
                 st.markdown(f"### 🐦 {t.get('trends_twitter_analysis', 'Twitter/X Analysis')}")
 
-                twitter_volume = latest.get('twitter_volume', 0)
-                st.markdown(f"**{t.get('trends_tweet_volume', 'Tweet Volume (48h)')}:** {twitter_volume} {t.get('tweets', 'tweets')}")
+                twitter_volume = latest.get('twitter_volume', 0) or latest.get('tweet_count', 0)
+                st.markdown(f"**{t.get('trends_tweet_volume', 'Tweet Volume (30d)')}:** {twitter_volume} {t.get('tweets', 'tweets')}")
 
                 twitter_summary = normalize_display_text(latest.get('twitter_summary', ''))
                 if twitter_summary:
@@ -595,8 +596,16 @@ try:
                 stock_price = latest.get('stock_price_usd')
                 if stock_price:
                     # Display price with source
-                    price_type = latest.get('price_type', 'Price')
+                    price_type = latest.get('price_type')
                     price_context = latest.get('price_context', '')
+
+                    if not price_type and stock_price:
+                        if 1800 <= stock_price <= 2200:
+                            price_type = 'RCN'
+                            price_context = 'RCN FOB Cambodia'
+                        elif 6200 <= stock_price <= 6800:
+                            price_type = 'Kernels'
+                            price_context = 'Kernels W320 FOB Vietnam'
 
                     st.markdown(f"**{t.get('trends_price', 'Price')}:** ${stock_price:,.2f}/ton")
 
@@ -610,10 +619,10 @@ try:
                         if price_type:
                             if price_type == 'RCN':
                                 st.info(f"**{price_type}** - Raw Cashew Nuts (FOB Cambodia)")
-                                st.caption("Fourchette typique: $1,500-2,500/ton")
+                                st.caption("Fourchette typique: $1,800-2,200/ton")
                             elif price_type == 'Kernels':
                                 st.info(f"**{price_type}** - Processed (FOB Vietnam)")
-                                st.caption("Fourchette typique: $6,000-7,000/ton (W320)")
+                                st.caption("Fourchette typique: $6,200-6,800/ton (W320)")
                             else:
                                 st.caption(f"Type: {price_type}")
                                 if price_context:
@@ -643,7 +652,7 @@ try:
                             st.markdown(f"• ${farmgate_usd:.2f} USD/kg")
 
                         st.caption("⚠️ Estimated from global prices")
-                        st.caption("(~70% of FOB, based on Thailand -12%)")
+                        st.caption(f"(~{RUBBER_FARMGATE_FACTOR:.0%} of FOB, based on Thailand -12%)")
 
                     # Phase 4: Cambodia Rubber Snapshot
                     st.markdown("---")
@@ -655,10 +664,8 @@ try:
                     with snap_col2:
                         st.metric("Familles", "80,000", help="Dependantes du caoutchouc")
                     with snap_col3:
-                        if farmgate_khr:
-                            st.metric("Farmgate", f"{farmgate_khr:,.0f} KHR/kg")
-                        else:
-                            st.metric("Farmgate", "~4,500 KHR/kg")
+                        st.metric("Farmgate", "3,500–4,000 KHR/kg")
+                        st.caption("≈ $1,000–1,150 USD/ton")
 
                     st.caption("**Destinations:** Chine 60% | Vietnam 20% | Singapour 10% | Autres 10%")
                     st.caption("**Provinces:** Kampong Cham, Kratie, Mondulkiri, Ratanakiri")
@@ -710,6 +717,30 @@ try:
                 stats = public_data['statistics']
 
                 st.markdown(f"*{t.get('trends_source', 'Source')}: {public_data['source']}*")
+                price_basis = stats.get("price_basis")
+                price_type = stats.get("price_type")
+                current_price = stats.get("current", 0)
+                basis_label = None
+
+                # Detect basis from API or infer from price
+                if price_basis == "kernel_fob_vietnam_w320":
+                    basis_label = "Kernels W320 FOB Vietnam"
+                elif price_basis == "rcn_fob_cambodia":
+                    basis_label = "RCN FOB Cambodia"
+                elif price_basis == "tsr20_spot":
+                    basis_label = "TSR20 spot benchmark"
+                elif commodity == 'cashew' and current_price:
+                    # Fallback: auto-detect from price range
+                    if current_price > 5000:
+                        basis_label = "Kernels (prix > $5,000 = transformed)"
+                    elif current_price < 3000:
+                        basis_label = "RCN (prix < $3,000 = raw nuts)"
+                elif commodity == 'rubber':
+                    basis_label = "Natural Rubber spot"
+
+                if basis_label or price_type:
+                    details = basis_label or price_type or "Benchmark"
+                    st.info(f"**Segment:** {details}")
 
                 # Statistics
                 col1, col2, col3, col4 = st.columns(4)
@@ -1037,7 +1068,7 @@ with st.sidebar:
     if language == "fr":
         st.markdown("""
         **Sources de Données:**
-        - Twitter/X (derniers 48h)
+        - Twitter/X (derniers 30j)
         - Données boursières
         - Analyse IA Perplexity
         - Prix publics historiques
@@ -1061,7 +1092,7 @@ with st.sidebar:
     else:
         st.markdown("""
         **Data Sources:**
-        - Twitter/X (last 48h tweets)
+        - Twitter/X (last 30d tweets)
         - Stock market data
         - Perplexity AI analysis
         - Public historical prices
